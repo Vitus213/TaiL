@@ -1,0 +1,21 @@
+[Unit]
+Description=TaiL Window Time Tracker Service
+Documentation=https://github.com/yourusername/TaiL
+After=graphical-session.target
+Requires=graphical-session.target
+
+[Service]
+Type=simple
+# 使用 nix develop 环境运行服务
+ExecStart=/run/current-system/sw/bin/nix develop /home/vitus/Documents/TaiL --command cargo run --package tail-app --bin tail-service --release
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+# 环境变量
+Environment="RUST_LOG=info"
+Environment="RUST_BACKTRACE=1"
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,12 @@
+[package]
+name = "tail-hyprland"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+unix_socket = { workspace = true }
+tail-core = { path = "../tail-core" }

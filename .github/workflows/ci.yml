@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      
+      - name: Setup Nix Cache
+        uses: cachix/cachix-action@v13
+        with:
+          name: tail-cache
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      
+      - name: Build
+        run: nix build .#tail-app .#tail-service
+      
+      - name: Run Unit Tests
+        run: nix develop --command cargo test --lib --workspace --verbose
+      
+      - name: Run Integration Tests
+        run: nix develop --command cargo test --test '*' --workspace --verbose
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      
+      - name: Run Clippy
+        run: nix develop --command cargo clippy --workspace --all-targets -- -D warnings
+      
+      - name: Check Formatting
+        run: nix develop --command cargo fmt --check
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      
+      - name: Install Tarpaulin
+        run: nix develop --command cargo install cargo-tarpaulin
+      
+      - name: Run Coverage
+        run: nix develop --command cargo tarpaulin --workspace --out Xml --timeout 300
+      
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./cobertura.xml
+          fail_ci_if_error: false
+
+  build-release:
+    name: Build Release
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      
+      - name: Build Release
+        run: |
+          nix build .#tail-app --print-build-logs
+          nix build .#tail-service --print-build-logs
+      
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: tail-binaries
+          path: |
+            result/bin/tail-app
+            result/bin/tail-service

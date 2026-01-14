@@ -1,0 +1,25 @@
+[package]
+name = "tail-app"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "tail-app"
+path = "src/main.rs"
+
+[[bin]]
+name = "tail-service"
+path = "src/service.rs"
+
+[dependencies]
+eframe = { workspace = true }
+egui = { workspace = true }
+egui_extras = { workspace = true }
+dark-light = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+tail-core = { path = "../tail-core" }
+tail-gui = { path = "../tail-gui" }
+tail-service = { path = "../tail-service" }

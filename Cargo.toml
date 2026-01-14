@@ -1,0 +1,42 @@
+[workspace]
+members = ["tail-core", "tail-hyprland", "tail-afk", "tail-gui", "tail-service", "tail-app", "tests"]
+resolver = "2"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.40", features = ["full"] }
+
+# Database
+rusqlite = { version = "0.32", features = ["bundled", "chrono"] }
+r2d2 = "0.8"
+r2d2_sqlite = "0.25"
+
+# GUI
+eframe = { version = "0.28", default-features = false, features = ["default_fonts", "glow"] }
+egui = "0.28"
+egui_extras = { version = "0.28", default-features = false, features = ["default"] }
+egui_plot = "0.28"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# IPC
+unix_socket = "0.5"
+
+# Notifications
+notify-rust = "4"
+
+# System theme detection
+dark-light = "1"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
