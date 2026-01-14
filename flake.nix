@@ -36,9 +36,20 @@
 
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
+        # 自定义源码过滤器，包含 Cargo 源码和字体文件
+        # cleanCargoSource 默认只保留 Rust/Cargo 文件，会过滤掉 .ttf 字体
+        srcWithAssets = pkgs.lib.cleanSourceWith {
+          src = ./.;
+          filter = path: type:
+            # 保留字体文件
+            (pkgs.lib.hasSuffix ".ttf" path) ||
+            # 保留 Crane 默认的 Cargo 源码
+            (craneLib.filterCargoSources path type);
+        };
+
         # Common build inputs for the crate
         commonArgs = {
-          src = craneLib.cleanCargoSource ./.;
+          src = srcWithAssets;
 
           buildInputs =
             []
@@ -68,18 +79,43 @@
         # Cargo Artifacts
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
-        # Binary build
-        tail-app = craneLib.buildPackage (commonArgs
+        # 运行时库依赖（用于 makeWrapper）
+        runtimeLibs = pkgs.lib.makeLibraryPath [
+          pkgs.wayland
+          pkgs.libxkbcommon
+          pkgs.libGL
+          pkgs.mesa
+        ];
+
+        # Binary build - 原始构建
+        tail-app-unwrapped = craneLib.buildPackage (commonArgs
           // {
             inherit cargoArtifacts;
             cargoExtraArgs = "--package tail-app --bin tail-app";
           });
 
-        tail-service = craneLib.buildPackage (commonArgs
+        tail-service-unwrapped = craneLib.buildPackage (commonArgs
           // {
             inherit cargoArtifacts;
             cargoExtraArgs = "--package tail-app --bin tail-service";
           });
+
+        # 包装后的二进制文件，设置运行时库路径
+        tail-app = pkgs.runCommand "tail-app" {
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+        } ''
+          mkdir -p $out/bin
+          makeWrapper ${tail-app-unwrapped}/bin/tail-app $out/bin/tail-app \
+            --prefix LD_LIBRARY_PATH : "${runtimeLibs}"
+        '';
+
+        tail-service = pkgs.runCommand "tail-service" {
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+        } ''
+          mkdir -p $out/bin
+          makeWrapper ${tail-service-unwrapped}/bin/tail-service $out/bin/tail-service \
+            --prefix LD_LIBRARY_PATH : "${runtimeLibs}"
+        '';
 
       in {
         # Development environment

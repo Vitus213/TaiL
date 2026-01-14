@@ -17,6 +17,19 @@ in {
       description = "The TaiL service package to use.";
     };
 
+    guiPackage = mkOption {
+      type = types.package;
+      default = pkgs.tail-app;
+      defaultText = literalExpression "pkgs.tail-app";
+      description = "The TaiL GUI application package to use.";
+    };
+
+    installGui = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Whether to install the TaiL GUI application.";
+    };
+
     user = mkOption {
       type = types.str;
       default = "user";
@@ -44,7 +57,8 @@ in {
 
   config = mkIf cfg.enable {
     # 确保包可用
-    environment.systemPackages = [cfg.package];
+    environment.systemPackages = [cfg.package]
+      ++ (lib.optional cfg.installGui cfg.guiPackage);
 
     # Systemd 用户服务
     systemd.user.services.tail = {

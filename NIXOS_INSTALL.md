@@ -131,7 +131,7 @@ services.tail = {
   user = "yourusername";
 
   # AFK 超时时间（秒）
-  #默认: 300 (5分钟)
+  # 默认: 300 (5分钟)
   afkTimeout = 300;
 
   # 日志级别
@@ -143,8 +143,13 @@ services.tail = {
   # 默认: true
   autoStart = true;
 
+  # 是否安装 GUI 应用
+  # 默认: true
+  installGui = true;
+
   # 自定义包（高级用法）
-  # package = pkgs.tail-service;
+  # package = pkgs.tail-service;      # 后台服务包
+  # guiPackage = pkgs.tail-app;       # GUI 应用包
 };
 ```
 
