@@ -1,6 +1,6 @@
 [Unit]
 Description=TaiL Window Time Tracker Service
-Documentation=https://github.com/yourusername/TaiL
+Documentation=https://github.com/Vitus213/TaiL
 After=graphical-session.target
 Requires=graphical-session.target
 
