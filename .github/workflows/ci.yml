@@ -26,7 +26,7 @@ jobs:
       - name: Setup Nix Cache
         uses: cachix/cachix-action@v13
         with:
-          name: tail-cache
+          name: tail
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
       
       - name: Build
