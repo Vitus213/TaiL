@@ -37,6 +37,9 @@ notify-rust = "4"
 # System theme detection
 dark-light = "1"
 
+# Image loading
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "ico"] }
+
 # Error handling
 anyhow = "1.0"
 thiserror = "1.0"

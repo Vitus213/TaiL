@@ -822,6 +822,7 @@ dependencies = [
  "ahash 0.8.12",
  "egui",
  "enum-map",
+ "image",
  "log",
  "mime_guess2",
  "serde",
@@ -1439,6 +1440,8 @@ dependencies = [
  "moxcms",
  "num-traits",
  "png",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]
@@ -2735,6 +2738,7 @@ dependencies = [
  "egui",
  "egui_extras",
  "egui_plot",
+ "image",
  "serde",
  "serde_json",
  "tail-core",
@@ -4050,6 +4054,21 @@ name = "zmij"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd8f3f50b848df28f887acb68e41201b5aea6bc8a8dacc00fb40635ff9a72fea"
+
+[[package]]
+name = "zune-core"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "111f7d9820f05fd715df3144e254d6fc02ee4088b0644c0ffd0efc9e6d9d2773"
+
+[[package]]
+name = "zune-jpeg"
+version = "0.5.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e35aee689668bf9bd6f6f3a6c60bb29ba1244b3b43adfd50edd554a371da37d5"
+dependencies = [
+ "zune-core",
+]
 
 [[package]]
 name = "zvariant"

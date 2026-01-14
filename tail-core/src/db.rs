@@ -183,30 +183,49 @@ impl Repository {
     ) -> Result<Vec<AppUsage>, DbError> {
         let conn = self.pool.get()?;
 
-        let mut stmt = conn.prepare(
-            "SELECT app_name, SUM(duration_secs) as total_seconds
+        // 首先获取所有窗口事件
+        let mut events_stmt = conn.prepare(
+            "SELECT id, timestamp, app_name, window_title, workspace, duration_secs, is_afk
              FROM window_events
              WHERE timestamp >= ?1 AND timestamp <= ?2 AND is_afk = 0
-             GROUP BY app_name
-             ORDER BY total_seconds DESC",
+             ORDER BY timestamp ASC",
         )?;
 
-        let usages = stmt.query_map(params![start, end], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, i64>(1)?,
-            ))
+        let all_events: Vec<WindowEvent> = events_stmt.query_map(params![start, end], |row| {
+            Ok(WindowEvent {
+                id: Some(row.get(0)?),
+                timestamp: row.get(1)?,
+                app_name: row.get(2)?,
+                window_title: row.get(3)?,
+                workspace: row.get(4)?,
+                duration_secs: row.get(5)?,
+                is_afk: row.get(6)?,
+            })
         })?
         .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(usages
+        // 按应用名称分组并计算总时长
+        let mut app_map: std::collections::HashMap<String, (i64, Vec<WindowEvent>)> = std::collections::HashMap::new();
+        
+        for event in all_events {
+            let entry = app_map.entry(event.app_name.clone()).or_insert((0, Vec::new()));
+            entry.0 += event.duration_secs;
+            entry.1.push(event);
+        }
+
+        // 转换为 AppUsage 并按总时长排序
+        let mut usages: Vec<AppUsage> = app_map
             .into_iter()
-            .map(|(app_name, total_seconds)| AppUsage {
+            .map(|(app_name, (total_seconds, window_events))| AppUsage {
                 app_name,
                 total_seconds,
-                window_events: vec![],
+                window_events,
             })
-            .collect())
+            .collect();
+
+        usages.sort_by(|a, b| b.total_seconds.cmp(&a.total_seconds));
+
+        Ok(usages)
     }
 
     /// 更新窗口事件的时长

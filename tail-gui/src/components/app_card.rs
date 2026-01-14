@@ -113,7 +113,9 @@ impl<'a> AppCard<'a> {
 
 impl<'a> Widget for AppCard<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
-        let desired_size = Vec2::new(ui.available_width(), 80.0);
+        // 根据是否有窗口标题调整卡片高度
+        let card_height = if self.window_title.is_some() { 90.0 } else { 70.0 };
+        let desired_size = Vec2::new(ui.available_width(), card_height);
         let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click());
 
         if ui.is_rect_visible(rect) {
@@ -195,35 +197,40 @@ impl<'a> Widget for AppCard<'a> {
 
             // 应用名称
             painter.text(
-                Pos2::new(text_left, content_rect.min.y + 8.0),
+                Pos2::new(text_left, content_rect.min.y + 6.0),
                 egui::Align2::LEFT_TOP,
                 self.display_name,
                 egui::FontId::proportional(self.theme.body_size),
                 self.theme.text_color,
             );
 
-            // 窗口标题（如果有）
-            if let Some(title) = self.window_title {
-                let truncated_title = if title.len() > 40 {
-                    format!("{}...", &title[..37])
+            // 窗口标题（如果有）- 放在应用名称下方
+            let progress_y_offset = if let Some(title) = self.window_title {
+                let truncated_title = if title.chars().count() > 50 {
+                    // 使用字符边界安全截断，避免在多字节字符中间截断
+                    let truncated: String = title.chars().take(47).collect();
+                    format!("{}...", truncated)
                 } else {
                     title.to_string()
                 };
                 painter.text(
-                    Pos2::new(text_left, content_rect.min.y + 28.0),
+                    Pos2::new(text_left, content_rect.min.y + 24.0),
                     egui::Align2::LEFT_TOP,
                     truncated_title,
                     egui::FontId::proportional(self.theme.small_size),
                     self.theme.secondary_text_color,
                 );
-            }
+                44.0 // 有窗口标题时，进度条位置更低
+            } else {
+                28.0 // 无窗口标题时，进度条位置较高
+            };
 
-            // 进度条
+            // 进度条 - 放在窗口标题下方
             let progress_height = 6.0;
-            let progress_y = content_rect.max.y - progress_height - 8.0;
+            let progress_y = content_rect.min.y + progress_y_offset;
             let progress_rect = Rect::from_min_size(
                 Pos2::new(text_left, progress_y),
-                Vec2::new(text_width, progress_height),
+                Vec2::new(text_width.max(100.0), progress_height),
             );
             
             // 进度条背景
@@ -250,7 +257,7 @@ impl<'a> Widget for AppCard<'a> {
             
             // 时长
             painter.text(
-                Pos2::new(right_x, content_rect.min.y + 8.0),
+                Pos2::new(right_x, content_rect.min.y + 6.0),
                 egui::Align2::RIGHT_TOP,
                 Self::format_duration(self.duration_secs),
                 egui::FontId::proportional(self.theme.body_size),
@@ -259,7 +266,7 @@ impl<'a> Widget for AppCard<'a> {
 
             // 百分比
             painter.text(
-                Pos2::new(right_x, content_rect.min.y + 32.0),
+                Pos2::new(right_x, content_rect.min.y + 28.0),
                 egui::Align2::RIGHT_TOP,
                 format!("{:.1}%", self.percentage),
                 egui::FontId::proportional(self.theme.small_size),
