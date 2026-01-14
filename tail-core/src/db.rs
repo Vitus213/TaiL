@@ -1,6 +1,6 @@
 //! TaiL Core - 数据库访问层
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc, Local};
 use rusqlite::params;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
@@ -340,12 +340,14 @@ impl Repository {
     pub fn get_today_app_usage(&self, app_name: &str) -> Result<i64, DbError> {
         let conn = self.pool.get()?;
         
-        // 获取今天的开始时间（UTC）
-        let today_start = chrono::Utc::now()
-            .date_naive()
+        // 获取今天的开始时间（使用本地时间计算"今天"，然后转换为 UTC）
+        let local_now = Local::now();
+        let today_start = local_now.date_naive()
             .and_hms_opt(0, 0, 0)
             .unwrap()
-            .and_utc();
+            .and_local_timezone(Local)
+            .unwrap()
+            .with_timezone(&Utc);
 
         let mut stmt = conn.prepare(
             "SELECT COALESCE(SUM(duration_secs), 0)

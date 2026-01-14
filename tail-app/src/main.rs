@@ -16,7 +16,8 @@ fn main() -> eframe::Result<()> {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([900.0, 700.0])
             .with_min_inner_size([600.0, 400.0])
-            .with_title("TaiL - 时间追踪"),
+            .with_title("TaiL - 时间追踪")
+            .with_app_id("tail"),  // 设置 Wayland app_id，用于 Hyprland 识别窗口
         ..Default::default()
     };
 

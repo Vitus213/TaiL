@@ -4,7 +4,7 @@ use egui::{Ui, Color32, Pos2, Rect, Vec2, Rounding};
 use egui_extras::{TableBuilder, Column};
 use tail_core::AppUsage;
 use tail_core::models::TimeRange;
-use chrono::{Timelike, Datelike};
+use chrono::{Timelike, Datelike, Local};
 
 use crate::components::{PageHeader, TimeRangeSelector, SectionDivider, EmptyState};
 use crate::icons::IconCache;
@@ -219,8 +219,8 @@ impl<'a> StatisticsView<'a> {
             }
         }
 
-        // 获取最近 N 天的日期
-        let today = chrono::Utc::now();
+        // 获取最近 N 天的日期（使用本地时间）
+        let today = Local::now();
         let mut day_labels: Vec<(u32, String)> = Vec::new();
         
         for i in 0..days {
@@ -351,9 +351,9 @@ impl<'a> StatisticsView<'a> {
             }
         }
 
-        // 获取最近 N 天的日期
-        let today = chrono::Utc::now();
-        let mut day_data: Vec<(u32, String, chrono::DateTime<chrono::Utc>)> = Vec::new();
+        // 获取最近 N 天的日期（使用本地时间）
+        let today = Local::now();
+        let mut day_data: Vec<(u32, String, chrono::DateTime<Local>)> = Vec::new();
         
         for i in 0..days {
             let date = today - chrono::Duration::days(i as i64);
@@ -436,14 +436,19 @@ impl<'a> StatisticsView<'a> {
 
             // 如果点击了这个柱子，切换到该天
             if is_clicked {
+                // 使用本地时间计算日期范围，然后转换为 UTC
                 let day_start = date.date_naive()
                     .and_hms_opt(0, 0, 0)
                     .unwrap()
-                    .and_utc();
+                    .and_local_timezone(Local)
+                    .unwrap()
+                    .with_timezone(&chrono::Utc);
                 let day_end = date.date_naive()
                     .and_hms_opt(23, 59, 59)
                     .unwrap()
-                    .and_utc();
+                    .and_local_timezone(Local)
+                    .unwrap()
+                    .with_timezone(&chrono::Utc);
                 clicked_range = Some(TimeRange::Custom(day_start, day_end));
             }
 

@@ -64,11 +64,11 @@ impl TailService {
 
         // 在后台任务中订阅 Hyprland 事件
         let ipc = HyprlandIpc::new()?;
-        let tx_clone = tx.clone();
+        let tx_hyprland = tx.clone();
         tokio::spawn(async move {
             if let Err(e) = ipc.subscribe_events(move |event| {
                 // 使用 try_send 避免阻塞
-                if let Err(e) = tx_clone.try_send(event) {
+                if let Err(e) = tx_hyprland.try_send(event) {
                     error!("Failed to send event: {}", e);
                 }
             }).await {
@@ -87,12 +87,13 @@ impl TailService {
         });
 
         // 启动定期更新当前窗口时长的任务
-        let mut update_interval = interval(Duration::from_secs(5));
+        let tx_update = tx.clone();
         tokio::spawn(async move {
+            let mut update_interval = interval(Duration::from_secs(5));
             loop {
                 update_interval.tick().await;
                 // 通过通道发送更新信号
-                if let Err(e) = tx.try_send(HyprlandEvent::WindowTitleChanged {
+                if let Err(e) = tx_update.try_send(HyprlandEvent::WindowTitleChanged {
                     address: String::new(),
                     title: String::from("__UPDATE_CURRENT_WINDOW__")
                 }) {
@@ -100,6 +101,9 @@ impl TailService {
                 }
             }
         });
+
+        // 丢弃原始 tx，这样当所有发送者都关闭时，rx.recv() 会返回 None
+        drop(tx);
 
         // 处理事件
         while let Some(event) = rx.recv().await {

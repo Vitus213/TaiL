@@ -1,6 +1,6 @@
 //! TaiL GUI - egui 应用
 
-use chrono::{DateTime, Utc, Duration as ChronoDuration};
+use chrono::{DateTime, Utc, Local, Duration as ChronoDuration};
 use egui::{Color32, Rounding, Vec2};
 use tail_core::{DbConfig, Repository, AppUsage, DailyGoal};
 use tail_core::models::TimeRange;
@@ -105,11 +105,14 @@ impl TaiLApp {
             }
         }
 
-        // 仪表板固定显示今天的数据
-        let today_start = now.date_naive()
+        // 仪表板固定显示今天的数据（使用本地时间计算"今天"的开始）
+        let local_now = Local::now();
+        let today_start = local_now.date_naive()
             .and_hms_opt(0, 0, 0)
             .unwrap()
-            .and_utc();
+            .and_local_timezone(Local)
+            .unwrap()
+            .with_timezone(&Utc);
         
         match self.repo.get_app_usage(today_start, now) {
             Ok(usage) => {
@@ -163,33 +166,57 @@ impl TaiLApp {
     /// 获取统计页面时间范围的开始和结束时间
     fn get_stats_time_range_bounds(&self) -> (DateTime<Utc>, DateTime<Utc>) {
         let now = Utc::now();
+        let local_now = Local::now();
+        
         match self.stats_time_range {
             TimeRange::Today => {
-                let today_start = now.date_naive()
+                // 使用本地时间计算"今天"的开始
+                let today_start = local_now.date_naive()
                     .and_hms_opt(0, 0, 0)
                     .unwrap()
-                    .and_utc();
+                    .and_local_timezone(Local)
+                    .unwrap()
+                    .with_timezone(&Utc);
                 (today_start, now)
             }
             TimeRange::Yesterday => {
-                let yesterday = now - ChronoDuration::days(1);
-                let yesterday_start = yesterday.date_naive()
+                // 使用本地时间计算"昨天"
+                let local_yesterday = local_now - ChronoDuration::days(1);
+                let yesterday_start = local_yesterday.date_naive()
                     .and_hms_opt(0, 0, 0)
                     .unwrap()
-                    .and_utc();
-                let yesterday_end = yesterday.date_naive()
+                    .and_local_timezone(Local)
+                    .unwrap()
+                    .with_timezone(&Utc);
+                let yesterday_end = local_yesterday.date_naive()
                     .and_hms_opt(23, 59, 59)
                     .unwrap()
-                    .and_utc();
+                    .and_local_timezone(Local)
+                    .unwrap()
+                    .with_timezone(&Utc);
                 (yesterday_start, yesterday_end)
             }
             TimeRange::Last7Days => {
-                let week_ago = now - ChronoDuration::days(7);
-                (week_ago, now)
+                // 使用本地时间计算7天前的开始
+                let local_week_ago = local_now - ChronoDuration::days(7);
+                let week_ago_start = local_week_ago.date_naive()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap()
+                    .and_local_timezone(Local)
+                    .unwrap()
+                    .with_timezone(&Utc);
+                (week_ago_start, now)
             }
             TimeRange::Last30Days => {
-                let month_ago = now - ChronoDuration::days(30);
-                (month_ago, now)
+                // 使用本地时间计算30天前的开始
+                let local_month_ago = local_now - ChronoDuration::days(30);
+                let month_ago_start = local_month_ago.date_naive()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap()
+                    .and_local_timezone(Local)
+                    .unwrap()
+                    .with_timezone(&Utc);
+                (month_ago_start, now)
             }
             TimeRange::Custom(start, end) => (start, end),
         }
