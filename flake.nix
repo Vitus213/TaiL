@@ -198,13 +198,16 @@
       }
     )
     // {
-      # NixOS 模块导出
-      nixosModules.default = nixosModule;
-      nixosModules.tail = nixosModule;
+      # NixOS 模块导出 - 自动应用 overlay
+      nixosModules.default = {config, pkgs, ...}: {
+        imports = [nixosModule];
+        nixpkgs.overlays = [self.overlays.default];
+      };
+      nixosModules.tail = self.nixosModules.default;
       # Overlay导出，方便其他 flake 使用
       overlays.default = final: prev: {
-        tail-app = self.packages.${prev.system}.tail-app;
-        tail-service = self.packages.${prev.system}.tail-service;
+        tail-app = self.packages.${prev.system}.tail-app or self.packages.${final.system}.tail-app;
+        tail-service = self.packages.${prev.system}.tail-service or self.packages.${final.system}.tail-service;
       };
     };
 }

@@ -4,6 +4,12 @@
 
 TaiL 提供了完整的 Nix Flakes 支持，可以轻松集成到您的 NixOS 系统中。
 
+## ⚠️ 重要提示
+
+**TaiL 的 NixOS 模块会自动应用 overlay**，无需手动配置 `nixpkgs.overlays`。模块导入后，`pkgs.tail-service` 和 `pkgs.tail-app` 会自动可用。
+
+**桌面图标说明**：`xdg.desktopEntries` 只能在 Home Manager 中使用，不能在 NixOS 系统模块中使用。如需桌面图标，请参考 [Home Manager 集成](#home-manager-集成) 部分。
+
 ## 方法一：使用 Flake 输入（推荐）
 
 ### 1. 添加到您的 flake.nix
@@ -23,7 +29,7 @@ TaiL 提供了完整的 Nix Flakes 支持，可以轻松集成到您的 NixOS �
     nixosConfigurations.yourhostname = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       modules = [
-        # 导入 TaiL 模块
+        # 导入 TaiL 模块（会自动应用 overlay）
         tail.nixosModules.default
         # 您的配置
         ./configuration.nix
@@ -33,7 +39,7 @@ TaiL 提供了完整的 Nix Flakes 支持，可以轻松集成到您的 NixOS �
 }
 ```
 
-### 2. 在configuration.nix 中启用服务
+### 2. 在 configuration.nix 中启用服务
 
 ```nix
 { config, pkgs, ... }:
@@ -48,12 +54,16 @@ TaiL 提供了完整的 Nix Flakes 支持，可以轻松集成到您的 NixOS �
     autoStart = true;  # 自动启动
   };
 
-  # （可选）将 tail-app 添加到系统包
-  environment.systemPackages = with pkgs; [
-    tail.packages.${system}.tail-app
-  ];
+  # GUI 应用已通过 services.tail.enable 自动添加到系统包
+  # 如果您想手动添加其他组件：
+  # environment.systemPackages = with pkgs; [
+  #   tail-app# 由overlay 提供，无需 tail.packages 前缀
+  #   tail-service  # 由 overlay 提供
+  # ];
 }
 ```
+
+**说明**：启用 `services.tail.enable = true` 后，`tail-service` 会自动添加到 `environment.systemPackages`，GUI 应用也会被包含。
 
 ### 3. 重建系统
 
@@ -142,29 +152,65 @@ services.tail = {
 
 如果您使用 Home Manager，可以这样配置：
 
-### 1. 添加到 home.nix
+### 1. 在 flake.nix 中配置 Home Manager
 
 ```nix
-{ config, pkgs, tail, ... }:
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    home-manager.url = "github:nix-community/home-manager";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";tail.url = "github:Vitus213/TaiL";
+  };
+
+  outputs = { self, nixpkgs, home-manager, tail, ... }: {
+    homeConfigurations.yourusername = home-manager.lib.homeManagerConfiguration {
+      pkgs = import nixpkgs {
+        system = "x86_64-linux";
+        overlays = [ tail.overlays.default ];  # 应用 TaiL overlay
+      };
+      modules = [ ./home.nix ];
+    };
+  };
+}
+```
+
+### 2. 添加到 home.nix
+
+```nix
+{ config, pkgs, ... }:
 
 {
-  # 安装 GUI 应用
+  # 安装 GUI 应用（overlay 已应用，直接使用）
   home.packages = [
-    tail.packages.${pkgs.system}.tail-app
+    pkgs.tail-app
   ];
+
+  # 配置桌面图标（仅 Home Manager 支持）
+  xdg.desktopEntries.tail = {
+    name = "TaiL";
+    genericName = "Window Time Tracker";
+    comment = "Track window usage time on Hyprland/Wayland";
+    exec = "${pkgs.tail-app}/bin/tail-app";
+    icon = "utilities-system-monitor";
+    terminal = false;
+    type = "Application";
+    categories = [ "Utility" "System" "Monitor" ];
+    keywords = [ "time" "tracker" "window" "hyprland" "wayland" ];
+  };
 
   # 配置 systemd 用户服务
   systemd.user.services.tail = {
     Unit = {
       Description = "TaiL Window Time Tracker";
-      After = [ "graphical-session.target" ];};
+      After = [ "graphical-session.target" ];
+    };
 
     Service = {
       Type = "simple";
-      ExecStart = "${tail.packages.${pkgs.system}.tail-service}/bin/tail-service";
+      ExecStart = "${pkgs.tail-service}/bin/tail-service";
       Restart = "on-failure";
       Environment = [
-        "RUST_LOG=info"
+        "RUST_LOG=info""RUST_BACKTRACE=1"
       ];
     };
 
@@ -174,6 +220,8 @@ services.tail = {
   };
 }
 ```
+
+**注意**：`xdg.desktopEntries` 只能在 Home Manager 中使用，不能在 NixOS 系统模块中使用。
 
 ### 2. 应用配置
 
@@ -195,20 +243,51 @@ exec-once = tail-service
 exec-once = /run/current-system/sw/bin/tail-service
 ```
 
-## 使用 Overlay
+## 使用 Overlay（高级）
 
-如果您想在其他地方使用 TaiL 包：
+### NixOS 配置中手动应用 Overlay
+
+如果您**不使用** `tail.nixosModules.default`，而是想手动应用 overlay：
 
 ```nix
 {
+  # 手动应用 overlay
   nixpkgs.overlays = [
     tail.overlays.default
   ];
 
+  # 现在可以使用 pkgs.tail-app 和 pkgs.tail-service
   environment.systemPackages = with pkgs; [
     tail-app
     tail-service
   ];
+}
+```
+
+**重要**：如果您已经使用了 `tail.nixosModules.default`，则**无需**手动配置 overlay，因为模块会自动应用。
+
+### 在其他 Flake 中使用
+
+```nix
+{
+  inputs.tail.url = "github:Vitus213/TaiL";
+
+  outputs = { self, nixpkgs, tail, ... }: {
+    packages = nixpkgs.lib.genAttrs [ "x86_64-linux" ] (system:
+      let
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ tail.overlays.default ];
+        };
+      in {
+        # 现在可以使用 tail包
+        myApp = pkgs.stdenv.mkDerivation {
+          buildInputs = [ pkgs.tail-service ];
+          # ...
+        };
+      }
+    );
+  };
 }
 ```
 
@@ -323,6 +402,42 @@ nix fmt
 ```
 
 ## 常见问题
+
+### Q: 构建时出现`error: attribute 'tail-service' missing`
+
+**A**: 这个错误已在最新版本中修复。请确保：
+
+1. 您使用的是最新版本的 TaiL flake
+2. 使用 `tail.nixosModules.default` 而不是手动导入 `nix/module.nix`
+3. 如果问题仍然存在，尝试：
+   ```bash
+   nix flake update
+   sudo nixos-rebuild switch --flake .#yourhostname
+   ```
+
+**技术细节**：之前的版本中，overlay 没有自动应用到 NixOS 模块中。现在 `tail.nixosModules.default` 会自动应用 overlay，使`pkgs.tail-service` 可用。
+
+### Q: Home Manager 中出现 `xdg.desktopEntries` 错误
+
+**A**: `xdg.desktopEntries` 是 Home Manager 的特性，需要：
+
+1. 确保使用 Home Manager（不是纯 NixOS 配置）
+2. 在 Home Manager 的 `home.nix` 中配置，而不是 `configuration.nix`
+3. 参考本文档的 [Home Manager 集成](#home-manager-集成) 部分
+
+**注意**：NixOS 系统模块中不能使用 `xdg.desktopEntries`。如果您想要桌面图标，必须使用 Home Manager。
+
+### Q: Overlay 没有生效，找不到 `pkgs.tail-service`
+
+**A**: 如果您使用 `tail.nixosModules.default`，overlay 会自动应用，无需手动配置。如果仍然有问题：
+
+1. 确认您导入的是`tail.nixosModules.default` 而不是手动导入 `./nix/module.nix`
+2. 检查 flake inputs是否正确
+3. 尝试重新锁定 flake：
+   ```bash
+   nix flake lock --update-input tail
+   sudo nixos-rebuild switch --flake .#yourhostname
+   ```
 
 ### Q: 服务无法启动
 

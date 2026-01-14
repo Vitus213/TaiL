@@ -80,19 +80,5 @@ in {
       };
     };
 
-    # 为 GUI 应用创建桌面入口
-    xdg.desktopEntries = mkIf (cfg.package != null) {
-      tail = {
-        name = "TaiL";
-        genericName = "Window Time Tracker";
-        comment = "Track window usage time on Hyprland/Wayland";
-        exec = "${cfg.package}/bin/tail-app";
-        icon = "utilities-system-monitor";
-        terminal = false;
-        type = "Application";
-        categories = ["Utility" "System" "Monitor"];
-        keywords = ["time" "tracker" "window" "hyprland" "wayland"];
-      };
-    };
   };
 }
