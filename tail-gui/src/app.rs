@@ -235,7 +235,7 @@ impl TaiLApp {
 
     /// 添加每日目标
     fn add_daily_goal(&mut self, goal: DailyGoal) {
-        if let Ok(_) = self.repo.upsert_daily_goal(&goal) {
+        if self.repo.upsert_daily_goal(&goal).is_ok() {
             self.daily_goals_cache.push(goal);
         }
     }

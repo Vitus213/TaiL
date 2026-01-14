@@ -3,7 +3,6 @@
 use chrono::{Utc, Duration};
 use tail_core::{Repository, DbConfig, WindowEvent, AfkEvent, DailyGoal};
 use tempfile::TempDir;
-use std::sync::Arc;
 
 /// 测试上下文
 struct TestContext {

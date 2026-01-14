@@ -355,11 +355,10 @@ impl IconCache {
                     let file_name_str = file_name.to_string_lossy().to_lowercase();
                     if file_name_str.contains(&name_lower) {
                         let path = entry.path();
-                        if let Some(ext) = path.extension() {
-                            if extensions.contains(&ext.to_str().unwrap_or("")) {
+                        if let Some(ext) = path.extension()
+                            && extensions.contains(&ext.to_str().unwrap_or("")) {
                                 return Some(path);
                             }
-                        }
                     }
                 }
             }
@@ -382,18 +381,17 @@ impl IconCache {
             if let Ok(entries) = std::fs::read_dir(&dir_path) {
                 for entry in entries.flatten() {
                     let path = entry.path();
-                    if path.extension().map_or(false, |e| e == "desktop") {
+                    if path.extension().is_some_and(|e| e == "desktop") {
                         let file_name = path.file_stem()
                             .and_then(|s| s.to_str())
                             .unwrap_or("")
                             .to_lowercase();
                         
                         // 检查文件名是否匹配
-                        if file_name.contains(app_name) || app_name.contains(&file_name) {
-                            if let Some(icon) = self.parse_desktop_file(&path) {
+                        if (file_name.contains(app_name) || app_name.contains(&file_name))
+                            && let Some(icon) = self.parse_desktop_file(&path) {
                                 return Some(icon);
                             }
-                        }
                     }
                 }
             }
@@ -411,8 +409,8 @@ impl IconCache {
         for line in content.lines() {
             let line = line.trim();
             
-            if line.starts_with("Icon=") {
-                icon_name = Some(line[5..].to_string());
+            if let Some(stripped) = line.strip_prefix("Icon=") {
+                icon_name = Some(stripped.to_string());
                 break;
             }
         }

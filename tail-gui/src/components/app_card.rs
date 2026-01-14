@@ -31,7 +31,20 @@ pub struct AppCard<'a> {
     fallback_label: &'static str,
 }
 
+/// AppCard 构造参数
+pub struct AppCardParams<'a> {
+    pub app_name: &'a str,
+    pub display_name: &'a str,
+    pub duration_secs: i64,
+    pub percentage: f32,
+    pub rank: usize,
+    pub theme: &'a TaiLTheme,
+    pub icon_cache: &'a mut IconCache,
+    pub ctx: &'a egui::Context,
+}
+
 impl<'a> AppCard<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         app_name: &'a str,
         display_name: &'a str,
