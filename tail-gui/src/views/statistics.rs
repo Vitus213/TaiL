@@ -55,10 +55,12 @@ impl<'a> StatisticsView<'a> {
 
         ui.add_space(self.theme.spacing);
 
-        // 时间分布图
-        ui.add(SectionDivider::new(self.theme).with_title("时间分布"));
+        // 时间分布图（可点击）
+        ui.add(SectionDivider::new(self.theme).with_title("时间分布 (点击柱子查看详情)"));
         ui.add_space(self.theme.spacing / 2.0);
-        self.show_time_distribution(ui);
+        if let Some(clicked_range) = self.show_time_distribution(ui) {
+            new_time_range = Some(clicked_range);
+        }
 
         ui.add_space(self.theme.spacing);
 
@@ -73,45 +75,50 @@ impl<'a> StatisticsView<'a> {
     /// 显示时间分布图（柱状图）
     /// 根据时间范围选择不同的显示方式：
     /// - 今天/昨天：显示24小时分布
-    /// - 7天/30天：显示按天分布
-    fn show_time_distribution(&self, ui: &mut Ui) {
+    /// - 7天/30天：显示按天分布，点击柱子可以切换到该天
+    fn show_time_distribution(&self, ui: &mut Ui) -> Option<TimeRange> {
         let desired_size = Vec2::new(ui.available_width(), 150.0);
-        let (rect, _response) = ui.allocate_exact_size(desired_size, egui::Sense::hover());
+        let (rect, response) = ui.allocate_exact_size(desired_size, egui::Sense::click());
+
+        let mut clicked_range = None;
 
         if ui.is_rect_visible(rect) {
-            let painter = ui.painter();
-            
-            // 背景
-            painter.rect_filled(
-                rect,
-                Rounding::same(self.theme.card_rounding),
-                self.theme.card_background,
-            );
-
-            let padding = self.theme.card_padding;
-            let content_rect = rect.shrink(padding);
-
             // 根据时间范围选择显示方式
             match self.time_range {
                 TimeRange::Today | TimeRange::Yesterday => {
-                    self.draw_hourly_chart(painter, content_rect);
+                    self.draw_hourly_chart(ui, rect);
+                    // 今天/昨天的小时图不支持点击切换
                 }
                 TimeRange::Last7Days => {
-                    self.draw_daily_chart(painter, content_rect, 7);
+                    clicked_range = self.draw_daily_chart_interactive(ui, rect, 7, &response);
                 }
                 TimeRange::Last30Days => {
-                    self.draw_daily_chart(painter, content_rect, 30);
+                    clicked_range = self.draw_daily_chart_interactive(ui, rect, 30, &response);
                 }
                 TimeRange::Custom(_, _) => {
                     // 自定义范围默认使用按天显示
-                    self.draw_daily_chart(painter, content_rect, 30);
+                    self.draw_daily_chart(ui, rect, 30);
                 }
             }
         }
+
+        clicked_range
     }
 
     /// 绘制24小时分布图
-    fn draw_hourly_chart(&self, painter: &egui::Painter, content_rect: Rect) {
+    fn draw_hourly_chart(&self, ui: &mut Ui, rect: Rect) {
+        let painter = ui.painter();
+        
+        // 背景
+        painter.rect_filled(
+            rect,
+            Rounding::same(self.theme.card_rounding),
+            self.theme.card_background,
+        );
+
+        let padding = self.theme.card_padding;
+        let content_rect = rect.shrink(padding);
+
         // 计算每小时的使用时间
         let mut hourly_usage = [0i64; 24];
         let mut max_usage = 0i64;
@@ -183,8 +190,20 @@ impl<'a> StatisticsView<'a> {
         }
     }
 
-    /// 绘制按天分布图
-    fn draw_daily_chart(&self, painter: &egui::Painter, content_rect: Rect, days: usize) {
+    /// 绘制按天分布图（非交互式，用于自定义范围）
+    fn draw_daily_chart(&self, ui: &mut Ui, rect: Rect, days: usize) {
+        let painter = ui.painter();
+        
+        // 背景
+        painter.rect_filled(
+            rect,
+            Rounding::same(self.theme.card_rounding),
+            self.theme.card_background,
+        );
+
+        let padding = self.theme.card_padding;
+        let content_rect = rect.shrink(padding);
+
         use std::collections::HashMap;
         
         // 计算每天的使用时间
@@ -292,6 +311,188 @@ impl<'a> StatisticsView<'a> {
                 self.theme.secondary_text_color,
             );
         }
+    }
+
+    /// 绘制按天分布图（交互式，支持点击切换日期）
+    fn draw_daily_chart_interactive(
+        &self,
+        ui: &mut Ui,
+        rect: Rect,
+        days: usize,
+        response: &egui::Response,
+    ) -> Option<TimeRange> {
+        use std::collections::HashMap;
+        
+        let painter = ui.painter();
+        
+        // 背景
+        painter.rect_filled(
+            rect,
+            Rounding::same(self.theme.card_rounding),
+            self.theme.card_background,
+        );
+
+        let padding = self.theme.card_padding;
+        let content_rect = rect.shrink(padding);
+
+        let mut clicked_range = None;
+        let mut hovered_info: Option<(String, i64)> = None;
+        
+        // 计算每天的使用时间
+        let mut daily_usage: HashMap<u32, i64> = HashMap::new();
+        let mut max_usage = 0i64;
+
+        for usage in self.app_usage {
+            for event in &usage.window_events {
+                let day = event.timestamp.ordinal(); // 一年中的第几天
+                let entry = daily_usage.entry(day).or_insert(0);
+                *entry += event.duration_secs;
+                max_usage = max_usage.max(*entry);
+            }
+        }
+
+        // 获取最近 N 天的日期
+        let today = chrono::Utc::now();
+        let mut day_data: Vec<(u32, String, chrono::DateTime<chrono::Utc>)> = Vec::new();
+        
+        for i in 0..days {
+            let date = today - chrono::Duration::days(i as i64);
+            let ordinal = date.ordinal();
+            let label = if days <= 7 {
+                // 7天内显示星期几
+                let weekday = date.weekday();
+                match weekday {
+                    chrono::Weekday::Mon => "周一",
+                    chrono::Weekday::Tue => "周二",
+                    chrono::Weekday::Wed => "周三",
+                    chrono::Weekday::Thu => "周四",
+                    chrono::Weekday::Fri => "周五",
+                    chrono::Weekday::Sat => "周六",
+                    chrono::Weekday::Sun => "周日",
+                }.to_string()
+            } else {
+                // 30天显示日期
+                format!("{}/{}", date.month(), date.day())
+            };
+            day_data.push((ordinal, label, date));
+        }
+        
+        // 反转使其从旧到新排列
+        day_data.reverse();
+
+        // 绘制柱状图
+        let bar_gap = if days <= 7 { 8.0 } else { 2.0 };
+        let bar_width = (content_rect.width() - (days - 1) as f32 * bar_gap) / days as f32;
+        let chart_height = content_rect.height() - 30.0;
+        let chart_bottom = content_rect.max.y - 20.0;
+
+        // 检测鼠标位置
+        let hover_pos = response.hover_pos();
+        let click_pos = if response.clicked() { hover_pos } else { None };
+
+        for (idx, (ordinal, label, date)) in day_data.iter().enumerate() {
+            let usage = daily_usage.get(ordinal).copied().unwrap_or(0);
+            
+            let bar_height = if max_usage > 0 {
+                (usage as f32 / max_usage as f32) * chart_height
+            } else {
+                0.0
+            };
+
+            let bar_x = content_rect.min.x + idx as f32 * (bar_width + bar_gap);
+            // 扩展点击区域到整个柱子高度
+            let clickable_rect = Rect::from_min_size(
+                Pos2::new(bar_x, content_rect.min.y),
+                Vec2::new(bar_width, chart_height + 10.0),
+            );
+            let bar_rect = Rect::from_min_size(
+                Pos2::new(bar_x, chart_bottom - bar_height),
+                Vec2::new(bar_width, bar_height.max(2.0)),
+            );
+
+            // 检查是否悬停或点击
+            let is_hovered = hover_pos.map(|p| clickable_rect.contains(p)).unwrap_or(false);
+            let is_clicked = click_pos.map(|p| clickable_rect.contains(p)).unwrap_or(false);
+
+            // 根据使用量和悬停状态选择颜色
+            let base_color = if usage > max_usage * 3 / 4 {
+                self.theme.primary_color
+            } else if usage > max_usage / 2 {
+                self.theme.primary_color.linear_multiply(0.7)
+            } else if usage > 0 {
+                self.theme.primary_color.linear_multiply(0.4)
+            } else {
+                self.theme.divider_color
+            };
+
+            let color = if is_hovered {
+                // 悬停时高亮
+                self.theme.accent_color
+            } else {
+                base_color
+            };
+
+            painter.rect_filled(bar_rect, Rounding::same(2.0), color);
+
+            // 如果点击了这个柱子，切换到该天
+            if is_clicked {
+                let day_start = date.date_naive()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap()
+                    .and_utc();
+                let day_end = date.date_naive()
+                    .and_hms_opt(23, 59, 59)
+                    .unwrap()
+                    .and_utc();
+                clicked_range = Some(TimeRange::Custom(day_start, day_end));
+            }
+
+            // 记录悬停信息用于后续显示工具提示
+            if is_hovered {
+                hovered_info = Some((date.format("%Y-%m-%d").to_string(), usage));
+            }
+
+            // 日期标签
+            let show_label = if days <= 7 {
+                true // 7天内全部显示
+            } else {
+                idx % 5 == 0 || idx == days - 1 // 30天每5天显示一次
+            };
+            
+            if show_label {
+                let label_color = if is_hovered {
+                    self.theme.text_color
+                } else {
+                    self.theme.secondary_text_color
+                };
+                painter.text(
+                    Pos2::new(bar_x + bar_width / 2.0, chart_bottom + 10.0),
+                    egui::Align2::CENTER_CENTER,
+                    label,
+                    egui::FontId::proportional(self.theme.small_size - 2.0),
+                    label_color,
+                );
+            }
+        }
+
+        // Y轴标签
+        if max_usage > 0 {
+            let max_label = Self::format_duration_short(max_usage);
+            painter.text(
+                Pos2::new(content_rect.min.x, content_rect.min.y + 5.0),
+                egui::Align2::LEFT_TOP,
+                max_label,
+                egui::FontId::proportional(self.theme.small_size - 2.0),
+                self.theme.secondary_text_color,
+            );
+        }
+
+        // 显示工具提示（在绘制完成后）
+        if let Some((date_str, usage)) = hovered_info {
+            response.clone().on_hover_text(format!("{}: {}", date_str, Self::format_duration(usage)));
+        }
+
+        clicked_range
     }
 
     /// 显示应用详情表格

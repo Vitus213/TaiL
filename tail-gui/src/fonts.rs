@@ -6,13 +6,13 @@
 use egui::{Context, FontData, FontDefinitions, FontFamily};
 
 /// 嵌入的 LXGW WenKai 字体（中文，霞鹜文楷）
-const LXGW: &[u8] = include_bytes!("../../tail-app/assets/fonts/LXGWWenKai-Regular.ttf");
+const LXGW: &[u8] = include_bytes!("../assets/fonts/LXGWWenKai-Regular.ttf");
 
 /// 嵌入的 Noto Sans SC 字体（中文后备）
-const NOTO_SANS_SC: &[u8] = include_bytes!("../../tail-app/assets/fonts/NotoSansSC-Regular.ttf");
+const NOTO_SANS_SC: &[u8] = include_bytes!("../assets/fonts/NotoSansSC-Regular.ttf");
 
 /// 嵌入的 JetBrains Mono 字体（等宽英文）
-const JETBRAINS_MONO: &[u8] = include_bytes!("../../tail-app/assets/fonts/JetBrainsMono-Regular.ttf");
+const JETBRAINS_MONO: &[u8] = include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf");
 
 /// 设置自定义字体
 ///

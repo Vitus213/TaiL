@@ -15,20 +15,26 @@ pub struct TaiLApp {
     /// 当前视图
     current_view: View,
 
-    /// 选中的时间范围
-    time_range: TimeRange,
+    /// 统计页面选中的时间范围
+    stats_time_range: TimeRange,
 
     /// 数据库仓库
     repo: Arc<Repository>,
 
-    /// 应用使用数据缓存
-    app_usage_cache: Vec<AppUsage>,
+    /// 仪表板数据缓存（固定为今天）
+    dashboard_usage_cache: Vec<AppUsage>,
+
+    /// 统计页面数据缓存
+    stats_usage_cache: Vec<AppUsage>,
 
     /// 每日目标缓存
     daily_goals_cache: Vec<DailyGoal>,
 
-    /// 上次刷新时间
-    last_refresh: Option<DateTime<Utc>>,
+    /// 仪表板上次刷新时间
+    dashboard_last_refresh: Option<DateTime<Utc>>,
+
+    /// 统计页面上次刷新时间
+    stats_last_refresh: Option<DateTime<Utc>>,
 
     /// 主题类型
     theme_type: ThemeType,
@@ -73,11 +79,13 @@ impl TaiLApp {
 
         Self {
             current_view: View::Dashboard,
-            time_range: TimeRange::Today,
+            stats_time_range: TimeRange::Today,
             repo: Arc::new(repo),
-            app_usage_cache: Vec::new(),
+            dashboard_usage_cache: Vec::new(),
+            stats_usage_cache: Vec::new(),
             daily_goals_cache: Vec::new(),
-            last_refresh: None,
+            dashboard_last_refresh: None,
+            stats_last_refresh: None,
             theme_type,
             theme,
             icon_cache: IconCache::new(),
@@ -86,27 +94,30 @@ impl TaiLApp {
         }
     }
 
-    /// 刷新数据
-    fn refresh_data(&mut self) {
+    /// 刷新仪表板数据（固定为今天）
+    fn refresh_dashboard_data(&mut self) {
         let now = Utc::now();
         // 每2秒刷新一次
-        if let Some(last) = self.last_refresh {
+        if let Some(last) = self.dashboard_last_refresh {
             let elapsed = now.signed_duration_since(last).num_seconds();
             if elapsed < 2 {
                 return;
             }
         }
 
-        let (start, end) = self.get_time_range_bounds();
+        // 仪表板固定显示今天的数据
+        let today_start = now.date_naive()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc();
         
-        // 刷新应用使用数据
-        match self.repo.get_app_usage(start, end) {
+        match self.repo.get_app_usage(today_start, now) {
             Ok(usage) => {
-                tracing::debug!("获取 {} 条应用使用记录", usage.len());
-                self.app_usage_cache = usage;
+                tracing::debug!("仪表板获取 {} 条应用使用记录", usage.len());
+                self.dashboard_usage_cache = usage;
             }
             Err(e) => {
-                tracing::error!("获取应用使用数据失败: {}", e);
+                tracing::error!("获取仪表板数据失败: {}", e);
             }
         }
 
@@ -120,13 +131,39 @@ impl TaiLApp {
             }
         }
 
-        self.last_refresh = Some(now);
+        self.dashboard_last_refresh = Some(now);
     }
 
-    /// 获取时间范围的开始和结束时间
-    fn get_time_range_bounds(&self) -> (DateTime<Utc>, DateTime<Utc>) {
+    /// 刷新统计页面数据
+    fn refresh_stats_data(&mut self) {
         let now = Utc::now();
-        match self.time_range {
+        // 每2秒刷新一次
+        if let Some(last) = self.stats_last_refresh {
+            let elapsed = now.signed_duration_since(last).num_seconds();
+            if elapsed < 2 {
+                return;
+            }
+        }
+
+        let (start, end) = self.get_stats_time_range_bounds();
+        
+        match self.repo.get_app_usage(start, end) {
+            Ok(usage) => {
+                tracing::debug!("统计页面获取 {} 条应用使用记录", usage.len());
+                self.stats_usage_cache = usage;
+            }
+            Err(e) => {
+                tracing::error!("获取统计数据失败: {}", e);
+            }
+        }
+
+        self.stats_last_refresh = Some(now);
+    }
+
+    /// 获取统计页面时间范围的开始和结束时间
+    fn get_stats_time_range_bounds(&self) -> (DateTime<Utc>, DateTime<Utc>) {
+        let now = Utc::now();
+        match self.stats_time_range {
             TimeRange::Today => {
                 let today_start = now.date_naive()
                     .and_hms_opt(0, 0, 0)
@@ -191,8 +228,12 @@ impl eframe::App for TaiLApp {
         // 请求持续重绘
         ctx.request_repaint();
 
-        // 刷新数据
-        self.refresh_data();
+        // 根据当前视图刷新对应数据
+        match self.current_view {
+            View::Dashboard => self.refresh_dashboard_data(),
+            View::Statistics => self.refresh_stats_data(),
+            View::Settings => self.refresh_dashboard_data(), // 设置页面也刷新仪表板数据
+        }
 
         // 处理添加目标对话框
         if let Some(goal) = self.add_goal_dialog.show(ctx, &self.theme) {
@@ -288,7 +329,7 @@ impl eframe::App for TaiLApp {
                 match self.current_view {
                     View::Dashboard => {
                         let view = DashboardView::new(
-                            &self.app_usage_cache,
+                            &self.dashboard_usage_cache,
                             &self.theme,
                             &self.icon_cache,
                         );
@@ -296,14 +337,14 @@ impl eframe::App for TaiLApp {
                     }
                     View::Statistics => {
                         let view = StatisticsView::new(
-                            &self.app_usage_cache,
-                            self.time_range,
+                            &self.stats_usage_cache,
+                            self.stats_time_range,
                             &self.theme,
                             &self.icon_cache,
                         );
                         if let Some(new_range) = view.show(ui) {
-                            self.time_range = new_range;
-                            self.last_refresh = None; // 强制刷新
+                            self.stats_time_range = new_range;
+                            self.stats_last_refresh = None; // 强制刷新
                         }
                     }
                     View::Settings => {
