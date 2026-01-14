@@ -4,7 +4,8 @@
 *.pdb
 
 # Cargo
-Cargo.lock
+# Note: Cargo.lock should be committed for applications (not libraries)
+# We need it for reproducible Nix builds
 
 # IDE
 .idea/
