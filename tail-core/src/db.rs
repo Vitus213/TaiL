@@ -183,6 +183,8 @@ impl Repository {
     ) -> Result<Vec<AppUsage>, DbError> {
         let conn = self.pool.get()?;
 
+        tracing::debug!("get_app_usage 查询范围: {} 到 {}", start, end);
+
         // 首先获取所有窗口事件
         let mut events_stmt = conn.prepare(
             "SELECT id, timestamp, app_name, window_title, workspace, duration_secs, is_afk
@@ -204,6 +206,8 @@ impl Repository {
         })?
         .collect::<Result<Vec<_>, _>>()?;
 
+        tracing::debug!("get_app_usage 查询到 {} 条事件", all_events.len());
+
         // 按应用名称分组并计算总时长
         let mut app_map: std::collections::HashMap<String, (i64, Vec<WindowEvent>)> = std::collections::HashMap::new();
         
@@ -211,6 +215,11 @@ impl Repository {
             let entry = app_map.entry(event.app_name.clone()).or_insert((0, Vec::new()));
             entry.0 += event.duration_secs;
             entry.1.push(event);
+        }
+
+        // 调试日志：输出每个应用的统计
+        for (app_name, (total, events)) in &app_map {
+            tracing::debug!("应用 '{}': 总时长 {} 秒, 事件数 {}", app_name, total, events.len());
         }
 
         // 转换为 AppUsage 并按总时长排序

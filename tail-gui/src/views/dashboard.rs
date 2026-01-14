@@ -13,15 +13,15 @@ pub struct DashboardView<'a> {
     app_usage: &'a [AppUsage],
     /// 主题
     theme: &'a TaiLTheme,
-    /// 图标缓存
-    icon_cache: &'a IconCache,
+    /// 图标缓存（可变引用）
+    icon_cache: &'a mut IconCache,
 }
 
 impl<'a> DashboardView<'a> {
     pub fn new(
         app_usage: &'a [AppUsage],
         theme: &'a TaiLTheme,
-        icon_cache: &'a IconCache,
+        icon_cache: &'a mut IconCache,
     ) -> Self {
         Self {
             app_usage,
@@ -31,7 +31,7 @@ impl<'a> DashboardView<'a> {
     }
 
     /// 渲染仪表板
-    pub fn show(&self, ui: &mut Ui) {
+    pub fn show(&mut self, ui: &mut Ui) {
         // 页面标题
         ui.add(PageHeader::new("今日统计", "📊", self.theme)
             .subtitle(&Self::get_date_string()));
@@ -54,11 +54,16 @@ impl<'a> DashboardView<'a> {
 
     /// 显示统计卡片
     fn show_stat_cards(&self, ui: &mut Ui) {
-        let total_seconds: i64 = self.app_usage.iter()
+        // 过滤掉空名称的应用
+        let valid_apps: Vec<_> = self.app_usage.iter()
+            .filter(|u| !u.app_name.is_empty())
+            .collect();
+        
+        let total_seconds: i64 = valid_apps.iter()
             .map(|u| u.total_seconds)
             .sum();
         
-        let app_count = self.app_usage.len();
+        let app_count = valid_apps.len();
         let avg_per_app = if app_count > 0 {
             total_seconds / app_count as i64
         } else {
@@ -92,8 +97,8 @@ impl<'a> DashboardView<'a> {
                 self.theme,
             ).accent_color(self.theme.warning_color));
 
-            // 最常用应用卡片
-            if let Some(top_app) = self.app_usage.first() {
+            // 最常用应用卡片（使用过滤后的有效应用）
+            if let Some(top_app) = valid_apps.first() {
                 let icon = self.icon_cache.get_emoji(&top_app.app_name);
                 ui.add(StatCard::new(
                     "最常用",
@@ -107,7 +112,7 @@ impl<'a> DashboardView<'a> {
     }
 
     /// 显示应用列表
-    fn show_app_list(&self, ui: &mut Ui) {
+    fn show_app_list(&mut self, ui: &mut Ui) {
         if self.app_usage.is_empty() {
             ui.add(EmptyState::new(
                 "📭",
@@ -122,36 +127,43 @@ impl<'a> DashboardView<'a> {
             .map(|u| u.total_seconds)
             .sum();
 
+        // 收集需要的数据，避免借用冲突
+        // 过滤掉空名称的应用
+        let app_data: Vec<_> = self.app_usage.iter().enumerate()
+            .filter(|(_, usage)| !usage.app_name.is_empty())
+            .map(|(idx, usage)| {
+                let percentage = if total_seconds > 0 {
+                    (usage.total_seconds as f32 / total_seconds as f32) * 100.0
+                } else {
+                    0.0
+                };
+                let window_title = usage.window_events.last()
+                    .map(|e| e.window_title.clone());
+                (idx, usage.app_name.clone(), usage.total_seconds, percentage, window_title)
+            }).collect();
+
         ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 ui.spacing_mut().item_spacing.y = self.theme.spacing / 2.0;
                 
-                for (idx, usage) in self.app_usage.iter().enumerate() {
-                    let percentage = if total_seconds > 0 {
-                        (usage.total_seconds as f32 / total_seconds as f32) * 100.0
-                    } else {
-                        0.0
-                    };
-
-                    // 获取最近的窗口标题
-                    let window_title = usage.window_events.last()
-                        .map(|e| e.window_title.as_str());
-
+                for (idx, app_name, total_secs, percentage, window_title) in app_data {
                     let mut card = AppCard::new(
-                        &usage.app_name,
-                        &usage.app_name, // TODO: 使用别名
-                        usage.total_seconds,
+                        &app_name,
+                        &app_name, // TODO: 使用别名
+                        total_secs,
                         percentage,
                         idx + 1,
                         self.theme,
+                        self.icon_cache,
+                        ui.ctx(),
                     );
 
-                    if let Some(title) = window_title {
+                    if let Some(ref title) = window_title {
                         card = card.with_window_title(title);
                     }
 
-                    let response = ui.add(card);
+                    let response = card.show(ui);
                     
                     // 点击展开详情
                     if response.clicked() {

@@ -50,6 +50,9 @@ pub struct TaiLApp {
 
     /// 是否已应用主题
     theme_applied: bool,
+
+    /// 窗口是否可见（用于检测工作区切换）
+    was_visible: bool,
 }
 
 /// 视图类型
@@ -91,16 +94,17 @@ impl TaiLApp {
             icon_cache: IconCache::new(),
             add_goal_dialog: AddGoalDialog::new(),
             theme_applied: false,
+            was_visible: true,
         }
     }
 
     /// 刷新仪表板数据（固定为今天）
     fn refresh_dashboard_data(&mut self) {
         let now = Utc::now();
-        // 每2秒刷新一次
+        // 每5秒刷新一次（减少数据库查询频率）
         if let Some(last) = self.dashboard_last_refresh {
             let elapsed = now.signed_duration_since(last).num_seconds();
-            if elapsed < 2 {
+            if elapsed < 5 {
                 return;
             }
         }
@@ -140,10 +144,10 @@ impl TaiLApp {
     /// 刷新统计页面数据
     fn refresh_stats_data(&mut self) {
         let now = Utc::now();
-        // 每2秒刷新一次
+        // 每5秒刷新一次（减少数据库查询频率）
         if let Some(last) = self.stats_last_refresh {
             let elapsed = now.signed_duration_since(last).num_seconds();
-            if elapsed < 2 {
+            if elapsed < 5 {
                 return;
             }
         }
@@ -252,8 +256,25 @@ impl eframe::App for TaiLApp {
             self.theme_applied = true;
         }
 
-        // 请求持续重绘
-        ctx.request_repaint();
+        // 检测窗口焦点状态变化
+        let has_focus = ctx.input(|i| i.focused);
+        let just_got_focus = has_focus && !self.was_visible;
+        self.was_visible = has_focus;
+
+        // 如果窗口刚获得焦点，强制刷新数据
+        if just_got_focus {
+            self.dashboard_last_refresh = None;
+            self.stats_last_refresh = None;
+            tracing::debug!("窗口获得焦点，强制刷新数据");
+        }
+
+        // 只在窗口有焦点时请求重绘
+        // 这样可以避免在窗口不可见时阻塞事件循环
+        if has_focus {
+            ctx.request_repaint_after(std::time::Duration::from_secs(5));
+        }
+        // 注意：当窗口没有焦点时，不请求重绘
+        // 当用户切换回来时，系统会自动触发重绘
 
         // 根据当前视图刷新对应数据
         match self.current_view {
@@ -274,9 +295,7 @@ impl eframe::App for TaiLApp {
                 .inner_margin(egui::Margin::symmetric(16.0, 8.0)))
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    // Logo
-                    ui.label(egui::RichText::new("🦎")
-                        .size(24.0));
+                    // Logo - 直接使用文字，不使用 emoji
                     ui.label(egui::RichText::new("TaiL")
                         .size(self.theme.heading_size)
                         .color(self.theme.text_color)
@@ -288,7 +307,7 @@ impl eframe::App for TaiLApp {
                     let nav_items = [
                         (View::Dashboard, "仪表板", "📊"),
                         (View::Statistics, "统计", "📈"),
-                        (View::Settings, "设置", "⚙️"),
+                        (View::Settings, "设置", "⚙"),
                     ];
 
                     for (view, label, icon) in nav_items {
@@ -355,19 +374,19 @@ impl eframe::App for TaiLApp {
             .show(ctx, |ui| {
                 match self.current_view {
                     View::Dashboard => {
-                        let view = DashboardView::new(
+                        let mut view = DashboardView::new(
                             &self.dashboard_usage_cache,
                             &self.theme,
-                            &self.icon_cache,
+                            &mut self.icon_cache,
                         );
                         view.show(ui);
                     }
                     View::Statistics => {
-                        let view = StatisticsView::new(
+                        let mut view = StatisticsView::new(
                             &self.stats_usage_cache,
                             self.stats_time_range,
                             &self.theme,
-                            &self.icon_cache,
+                            &mut self.icon_cache,
                         );
                         if let Some(new_range) = view.show(ui) {
                             self.stats_time_range = new_range;

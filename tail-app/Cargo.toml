@@ -20,6 +20,7 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
+resvg = { workspace = true }
 tail-core = { path = "../tail-core" }
 tail-gui = { path = "../tail-gui" }
 tail-service = { path = "../tail-service" }

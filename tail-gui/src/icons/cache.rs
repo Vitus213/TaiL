@@ -9,7 +9,7 @@ use std::sync::Arc;
 use egui::{ColorImage, TextureHandle, TextureOptions, Context};
 
 /// 图标大小（像素）
-const ICON_SIZE: u32 = 32;
+const ICON_SIZE: u32 = 48;
 
 /// 图标缓存
 pub struct IconCache {
@@ -131,6 +131,8 @@ impl IconCache {
         // 获取图标路径
         let icon_path = self.get_icon_path(app_name)?;
         
+        tracing::debug!("加载图标: {} -> {:?}", app_name, icon_path);
+        
         // 加载图片
         let image = self.load_image(&icon_path)?;
         
@@ -158,11 +160,46 @@ impl IconCache {
                 Some(ColorImage::from_rgba_unmultiplied(size, &pixels))
             }
             "svg" => {
-                // SVG 需要额外的库来渲染，暂时跳过
-                None
+                self.load_svg(path)
             }
             _ => None,
         }
+    }
+
+    /// 加载 SVG 文件并渲染为位图
+    fn load_svg(&self, path: &PathBuf) -> Option<ColorImage> {
+        let svg_data = std::fs::read(path).ok()?;
+        
+        // 解析 SVG
+        let options = resvg::usvg::Options::default();
+        let tree = resvg::usvg::Tree::from_data(&svg_data, &options).ok()?;
+        
+        // 创建像素缓冲区
+        let size = ICON_SIZE;
+        let mut pixmap = resvg::tiny_skia::Pixmap::new(size, size)?;
+        
+        // 计算缩放比例以适应目标大小
+        let tree_size = tree.size();
+        let scale_x = size as f32 / tree_size.width();
+        let scale_y = size as f32 / tree_size.height();
+        let scale = scale_x.min(scale_y);
+        
+        // 计算居中偏移
+        let offset_x = (size as f32 - tree_size.width() * scale) / 2.0;
+        let offset_y = (size as f32 - tree_size.height() * scale) / 2.0;
+        
+        let transform = resvg::tiny_skia::Transform::from_scale(scale, scale)
+            .post_translate(offset_x, offset_y);
+        
+        // 渲染 SVG
+        resvg::render(&tree, transform, &mut pixmap.as_mut());
+        
+        // 转换为 egui ColorImage
+        let pixels = pixmap.take();
+        Some(ColorImage::from_rgba_unmultiplied(
+            [size as usize, size as usize],
+            &pixels,
+        ))
     }
 
     /// 获取图标路径
@@ -178,23 +215,111 @@ impl IconCache {
         icon_path
     }
 
+    /// 获取图标搜索目录列表
+    /// 使用 XDG_DATA_DIRS 环境变量动态获取搜索路径（支持 NixOS）
+    fn get_icon_dirs() -> Vec<String> {
+        let mut dirs = Vec::new();
+        
+        // 从 XDG_DATA_DIRS 获取数据目录
+        let xdg_data_dirs = std::env::var("XDG_DATA_DIRS")
+            .unwrap_or_else(|_| "/usr/local/share:/usr/share".to_string());
+        
+        tracing::debug!("XDG_DATA_DIRS: {}", xdg_data_dirs);
+        
+        // 图标子目录（按优先级排序）
+        let icon_subdirs = [
+            "icons/hicolor/48x48/apps",
+            "icons/hicolor/64x64/apps",
+            "icons/hicolor/128x128/apps",
+            "icons/hicolor/scalable/apps",
+            "icons/hicolor/256x256/apps",
+            "icons/hicolor/32x32/apps",
+            "pixmaps",
+            "icons/Adwaita/48x48/apps",
+            "icons/Adwaita/scalable/apps",
+            "icons/breeze/apps/48",
+        ];
+        
+        // 遍历 XDG_DATA_DIRS 中的每个目录
+        for data_dir in xdg_data_dirs.split(':') {
+            if data_dir.is_empty() {
+                continue;
+            }
+            for subdir in &icon_subdirs {
+                let full_path = format!("{}/{}", data_dir, subdir);
+                dirs.push(full_path);
+            }
+        }
+        
+        // 添加一些额外的 NixOS 特定路径作为后备
+        let extra_dirs = [
+            "/run/current-system/sw/share/icons/hicolor/48x48/apps",
+            "/run/current-system/sw/share/icons/hicolor/scalable/apps",
+            "/run/current-system/sw/share/pixmaps",
+        ];
+        for dir in extra_dirs {
+            dirs.push(dir.to_string());
+        }
+        
+        tracing::debug!("图标搜索目录数量: {}", dirs.len());
+        
+        dirs
+    }
+
+    /// 获取 .desktop 文件搜索目录列表
+    /// 使用 XDG_DATA_DIRS 环境变量动态获取搜索路径（支持 NixOS）
+    fn get_desktop_dirs() -> Vec<String> {
+        let mut dirs = Vec::new();
+        let home = std::env::var("HOME").unwrap_or_default();
+        
+        // 用户本地目录优先
+        if !home.is_empty() {
+            dirs.push(format!("{}/.local/share/applications", home));
+        }
+        
+        // 从 XDG_DATA_DIRS 获取数据目录
+        let xdg_data_dirs = std::env::var("XDG_DATA_DIRS")
+            .unwrap_or_else(|_| "/usr/local/share:/usr/share".to_string());
+        
+        for data_dir in xdg_data_dirs.split(':') {
+            if data_dir.is_empty() {
+                continue;
+            }
+            let applications_dir = format!("{}/applications", data_dir);
+            dirs.push(applications_dir);
+        }
+        
+        // 添加额外的 NixOS 和 Flatpak 路径作为后备
+        let extra_dirs = [
+            "/run/current-system/sw/share/applications",
+            "/var/lib/flatpak/exports/share/applications",
+        ];
+        for dir in extra_dirs {
+            if !dirs.contains(&dir.to_string()) {
+                dirs.push(dir.to_string());
+            }
+        }
+        
+        // Flatpak 用户目录
+        if !home.is_empty() {
+            let flatpak_user = format!("{}/.local/share/flatpak/exports/share/applications", home);
+            if !dirs.contains(&flatpak_user) {
+                dirs.push(flatpak_user);
+            }
+        }
+        
+        tracing::debug!(".desktop 搜索目录数量: {}", dirs.len());
+        
+        dirs
+    }
+
     /// 在系统中查找图标
     fn find_icon(&self, app_name: &str) -> Option<PathBuf> {
         let name_lower = app_name.to_lowercase();
         
-        // 图标搜索路径（按优先级排序）
-        let icon_dirs = [
-            "/usr/share/icons/hicolor/48x48/apps",
-            "/usr/share/icons/hicolor/64x64/apps",
-            "/usr/share/icons/hicolor/32x32/apps",
-            "/usr/share/icons/hicolor/128x128/apps",
-            "/usr/share/icons/hicolor/256x256/apps",
-            "/usr/share/pixmaps",
-            "/usr/share/icons/Adwaita/48x48/apps",
-            "/usr/share/icons/breeze/apps/48",
-        ];
+        let icon_dirs = Self::get_icon_dirs();
 
-        // 图标扩展名（按优先级排序）
+        // 图标扩展名（按优先级排序，PNG 优先于 SVG 因为加载更快）
         let extensions = ["png", "svg", "xpm", "ico"];
 
         // 尝试直接匹配
@@ -245,13 +370,7 @@ impl IconCache {
 
     /// 从 .desktop 文件获取图标
     fn find_icon_from_desktop(&self, app_name: &str) -> Option<PathBuf> {
-        let home = std::env::var("HOME").unwrap_or_default();
-        let desktop_dirs = [
-            "/usr/share/applications".to_string(),
-            format!("{}/.local/share/applications", home),
-            "/var/lib/flatpak/exports/share/applications".to_string(),
-            format!("{}/.local/share/flatpak/exports/share/applications", home),
-        ];
+        let desktop_dirs = Self::get_desktop_dirs();
 
         for dir in &desktop_dirs {
             let dir_path = PathBuf::from(dir);
@@ -309,14 +428,7 @@ impl IconCache {
         }
 
         // 在图标目录中查找
-        let icon_dirs = [
-            "/usr/share/icons/hicolor/48x48/apps",
-            "/usr/share/icons/hicolor/64x64/apps",
-            "/usr/share/icons/hicolor/128x128/apps",
-            "/usr/share/icons/hicolor/256x256/apps",
-            "/usr/share/pixmaps",
-        ];
-
+        let icon_dirs = Self::get_icon_dirs();
         let extensions = ["png", "svg", "xpm", "ico", ""];
 
         for dir in &icon_dirs {

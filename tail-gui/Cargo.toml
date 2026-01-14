@@ -16,4 +16,5 @@ tracing = { workspace = true }
 tokio = { workspace = true }
 unix_socket = { workspace = true }
 image = { workspace = true }
+resvg = { workspace = true }
 tail-core = { path = "../tail-core" }

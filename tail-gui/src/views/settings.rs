@@ -46,7 +46,7 @@ impl<'a> SettingsView<'a> {
         let mut action = SettingsAction::None;
 
         // 页面标题
-        ui.add(PageHeader::new("设置", "⚙️", self.theme)
+        ui.add(PageHeader::new("设置", "⚙", self.theme)
             .subtitle("自定义您的 TaiL 体验"));
         
         ui.add_space(self.theme.spacing);
@@ -256,7 +256,8 @@ impl<'a> SettingsView<'a> {
                     ui.add_space(8.0);
                     ui.horizontal(|ui| {
                         ui.label(egui::RichText::new("💾")
-                            .size(16.0));
+                            .size(16.0)
+                            .family(egui::FontFamily::Proportional));
                         ui.label(egui::RichText::new("数据库位置")
                             .size(self.theme.body_size)
                             .color(self.theme.text_color));
@@ -275,7 +276,7 @@ impl<'a> SettingsView<'a> {
         ui.horizontal(|ui| {
             if ui.add(
                 egui::Button::new(
-                    egui::RichText::new("📤 导出数据")
+                    egui::RichText::new("导出数据")
                         .size(self.theme.small_size)
                 )
                 .rounding(Rounding::same(6.0))
@@ -285,7 +286,7 @@ impl<'a> SettingsView<'a> {
 
             if ui.add(
                 egui::Button::new(
-                    egui::RichText::new("🗑️ 清除数据")
+                    egui::RichText::new("清除数据")
                         .size(self.theme.small_size)
                         .color(self.theme.danger_color)
                 )
@@ -317,8 +318,6 @@ impl<'a> SettingsView<'a> {
                     ui.add_space(12.0);
                     
                     ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new("🦎")
-                            .size(32.0));
                         ui.vertical(|ui| {
                             ui.label(egui::RichText::new("TaiL")
                                 .size(self.theme.heading_size)

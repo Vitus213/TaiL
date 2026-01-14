@@ -40,6 +40,9 @@ dark-light = "1"
 # Image loading
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "ico"] }
 
+# SVG rendering
+resvg = "0.44"
+
 # Error handling
 anyhow = "1.0"
 thiserror = "1.0"

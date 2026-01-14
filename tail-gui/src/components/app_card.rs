@@ -1,12 +1,15 @@
 //! TaiL GUI - 应用卡片组件
 
-use egui::{Color32, Pos2, Rect, Response, Rounding, Sense, Stroke, Ui, Vec2, Widget};
+use std::sync::Arc;
+use egui::{Color32, Pos2, Rect, Response, Rounding, Sense, Stroke, TextureHandle, Ui, Vec2};
 
+use crate::icons::IconCache;
 use crate::theme::TaiLTheme;
 
 /// 应用卡片组件
 pub struct AppCard<'a> {
     /// 应用名称
+    #[allow(dead_code)]
     app_name: &'a str,
     /// 显示名称（可能是别名）
     display_name: &'a str,
@@ -22,6 +25,10 @@ pub struct AppCard<'a> {
     theme: &'a TaiLTheme,
     /// 是否选中
     selected: bool,
+    /// 图标纹理（可选）
+    icon_texture: Option<Arc<TextureHandle>>,
+    /// 后备文本标签
+    fallback_label: &'static str,
 }
 
 impl<'a> AppCard<'a> {
@@ -32,7 +39,13 @@ impl<'a> AppCard<'a> {
         percentage: f32,
         rank: usize,
         theme: &'a TaiLTheme,
+        icon_cache: &mut IconCache,
+        ctx: &egui::Context,
     ) -> Self {
+        // 从 IconCache 获取图标纹理和后备标签
+        let icon_texture = icon_cache.get_texture(ctx, app_name);
+        let fallback_label = icon_cache.get_emoji(app_name);
+        
         Self {
             app_name,
             display_name,
@@ -42,6 +55,8 @@ impl<'a> AppCard<'a> {
             window_title: None,
             theme,
             selected: false,
+            icon_texture,
+            fallback_label,
         }
     }
 
@@ -81,38 +96,8 @@ impl<'a> AppCard<'a> {
         }
     }
 
-    /// 获取应用图标（使用 emoji 作为后备）
-    fn get_app_icon(&self) -> &'static str {
-        let name_lower = self.app_name.to_lowercase();
-        
-        if name_lower.contains("code") || name_lower.contains("vscode") {
-            "💻"
-        } else if name_lower.contains("firefox") || name_lower.contains("chrome") || name_lower.contains("browser") {
-            "🌐"
-        } else if name_lower.contains("terminal") || name_lower.contains("konsole") || name_lower.contains("alacritty") {
-            "⌨️"
-        } else if name_lower.contains("discord") || name_lower.contains("slack") || name_lower.contains("telegram") {
-            "💬"
-        } else if name_lower.contains("spotify") || name_lower.contains("music") {
-            "🎵"
-        } else if name_lower.contains("file") || name_lower.contains("nautilus") || name_lower.contains("dolphin") {
-            "📁"
-        } else if name_lower.contains("steam") || name_lower.contains("game") {
-            "🎮"
-        } else if name_lower.contains("obs") || name_lower.contains("video") {
-            "🎬"
-        } else if name_lower.contains("gimp") || name_lower.contains("inkscape") || name_lower.contains("krita") {
-            "🎨"
-        } else if name_lower.contains("libreoffice") || name_lower.contains("office") {
-            "📄"
-        } else {
-            "📱"
-        }
-    }
-}
-
-impl<'a> Widget for AppCard<'a> {
-    fn ui(self, ui: &mut Ui) -> Response {
+    /// 显示卡片（替代 Widget trait）
+    pub fn show(self, ui: &mut Ui) -> Response {
         // 根据是否有窗口标题调整卡片高度
         let card_height = if self.window_title.is_some() { 90.0 } else { 70.0 };
         let desired_size = Vec2::new(ui.available_width(), card_height);
@@ -170,15 +155,27 @@ impl<'a> Widget for AppCard<'a> {
                 self.theme.primary_color.linear_multiply(0.2),
             );
             
-            // 绘制图标
-            let icon = self.get_app_icon();
-            painter.text(
-                icon_rect.center(),
-                egui::Align2::CENTER_CENTER,
-                icon,
-                egui::FontId::proportional(24.0),
-                self.theme.text_color,
-            );
+            // 绘制图标（优先使用纹理，否则使用文本后备）
+            if let Some(texture) = &self.icon_texture {
+                // 使用真实图标纹理
+                let uv = Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0));
+                let icon_inner_rect = icon_rect.shrink(4.0); // 留一点边距
+                painter.image(
+                    texture.id(),
+                    icon_inner_rect,
+                    uv,
+                    Color32::WHITE,
+                );
+            } else {
+                // 使用文本后备
+                painter.text(
+                    icon_rect.center(),
+                    egui::Align2::CENTER_CENTER,
+                    self.fallback_label,
+                    egui::FontId::proportional(16.0),
+                    self.theme.text_color,
+                );
+            }
 
             // 排名徽章
             let rank_pos = Pos2::new(icon_rect.right() - 8.0, icon_rect.top() - 4.0);
@@ -312,10 +309,8 @@ impl<'a> AppListItem<'a> {
             format!("{}m", minutes)
         }
     }
-}
 
-impl<'a> Widget for AppListItem<'a> {
-    fn ui(self, ui: &mut Ui) -> Response {
+    pub fn show(self, ui: &mut Ui) -> Response {
         let desired_size = Vec2::new(ui.available_width(), 32.0);
         let (rect, response) = ui.allocate_exact_size(desired_size, Sense::hover());
 

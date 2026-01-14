@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=TaiL
+GenericName=Time Tracker
+Comment=Track your application usage time
+Exec=tail-app
+Icon=tail
+Terminal=false
+Type=Application
+Categories=Utility;Monitor;
+Keywords=time;tracker;productivity;usage;
+StartupWMClass=tail

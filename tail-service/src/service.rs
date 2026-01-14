@@ -162,7 +162,10 @@ impl TailService {
         let now = Utc::now();
         let now_instant = Instant::now();
 
-        // 检查 AFK 状态
+        // 窗口切换表示用户活动，更新 AFK 检测器
+        self.afk_detector.record_activity();
+
+        // 检查 AFK 状态（现在应该是活跃状态，因为刚刚记录了活动）
         let afk_state = self.afk_detector.check_state();
         let is_afk = matches!(afk_state, AfkState::Afk { .. });
 

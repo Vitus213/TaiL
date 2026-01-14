@@ -18,8 +18,8 @@ pub struct StatisticsView<'a> {
     time_range: TimeRange,
     /// 主题
     theme: &'a TaiLTheme,
-    /// 图标缓存
-    icon_cache: &'a IconCache,
+    /// 图标缓存（可变引用以支持加载图标）
+    icon_cache: &'a mut IconCache,
 }
 
 impl<'a> StatisticsView<'a> {
@@ -27,7 +27,7 @@ impl<'a> StatisticsView<'a> {
         app_usage: &'a [AppUsage],
         time_range: TimeRange,
         theme: &'a TaiLTheme,
-        icon_cache: &'a IconCache,
+        icon_cache: &'a mut IconCache,
     ) -> Self {
         Self {
             app_usage,
@@ -38,7 +38,7 @@ impl<'a> StatisticsView<'a> {
     }
 
     /// 渲染统计视图，返回新选择的时间范围（如果有变化）
-    pub fn show(&self, ui: &mut Ui) -> Option<TimeRange> {
+    pub fn show(&mut self, ui: &mut Ui) -> Option<TimeRange> {
         let mut new_time_range = None;
 
         // 页面标题
@@ -501,7 +501,9 @@ impl<'a> StatisticsView<'a> {
     }
 
     /// 显示应用详情表格
-    fn show_app_table(&self, ui: &mut Ui) {
+    fn show_app_table(&mut self, ui: &mut Ui) {
+        use crate::icons::AppIcon;
+        
         if self.app_usage.is_empty() {
             ui.add(EmptyState::new(
                 "📭",
@@ -517,6 +519,16 @@ impl<'a> StatisticsView<'a> {
             .sum();
 
         let available_height = ui.available_height().max(200.0);
+        
+        // 收集应用数据以避免借用冲突
+        let app_data: Vec<_> = self.app_usage.iter().enumerate().map(|(idx, usage)| {
+            let percentage = if total_seconds > 0 {
+                (usage.total_seconds as f32 / total_seconds as f32) * 100.0
+            } else {
+                0.0
+            };
+            (idx, usage.app_name.clone(), usage.total_seconds, percentage)
+        }).collect();
 
         TableBuilder::new(ui)
             .striped(true)
@@ -560,13 +572,7 @@ impl<'a> StatisticsView<'a> {
                 });
             })
             .body(|mut body| {
-                for (idx, usage) in self.app_usage.iter().enumerate() {
-                    let percentage = if total_seconds > 0 {
-                        (usage.total_seconds as f32 / total_seconds as f32) * 100.0
-                    } else {
-                        0.0
-                    };
-
+                for (idx, app_name, total_secs, percentage) in app_data {
                     body.row(36.0, |mut row| {
                         // 排名
                         row.col(|ui| {
@@ -581,22 +587,21 @@ impl<'a> StatisticsView<'a> {
                                 .color(rank_color));
                         });
 
-                        // 图标
+                        // 图标（使用真正的图标）
                         row.col(|ui| {
-                            let icon = self.icon_cache.get_emoji(&usage.app_name);
-                            ui.label(egui::RichText::new(icon).size(20.0));
+                            AppIcon::new(&app_name).size(24.0).show(ui, self.icon_cache);
                         });
 
                         // 应用名称
                         row.col(|ui| {
-                            ui.label(egui::RichText::new(&usage.app_name)
+                            ui.label(egui::RichText::new(&app_name)
                                 .size(self.theme.body_size)
                                 .color(self.theme.text_color));
                         });
 
                         // 使用时长
                         row.col(|ui| {
-                            ui.label(egui::RichText::new(Self::format_duration(usage.total_seconds))
+                            ui.label(egui::RichText::new(Self::format_duration(total_secs))
                                 .size(self.theme.body_size)
                                 .color(self.theme.text_color));
                         });
