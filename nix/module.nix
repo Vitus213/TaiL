@@ -74,7 +74,11 @@ in {
         ExecStart = "${cfg.package}/bin/tail-service";
         Restart = "on-failure";
         RestartSec = "5s";
-        
+
+        # 日志输出
+        StandardOutput = "journal";
+        StandardError = "journal";
+
         # 环境变量
         Environment = [
           "RUST_LOG=${cfg.logLevel}"

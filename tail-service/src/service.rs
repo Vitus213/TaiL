@@ -301,12 +301,21 @@ impl Default for TailService {
 /// Service main entry point - 可以被其他 crate 调用
 pub fn service_main() {
     // 初始化日志
-    tracing_subscriber::fmt()
+    // 检测是否在 systemd 环境下运行，禁用 ANSI 颜色代码
+    let is_running_under_systemd = std::env::var("INVOCATION_ID").is_ok();
+
+    let builder = tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
                 .add_directive(tracing::Level::INFO.into()),
-        )
-        .init();
+        );
+
+    if is_running_under_systemd {
+        // systemd journal 环境下禁用颜色
+        builder.with_ansi(false).init();
+    } else {
+        builder.init();
+    }
 
     // 创建 runtime
     let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
