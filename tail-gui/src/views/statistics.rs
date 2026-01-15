@@ -3,12 +3,13 @@
 use egui::{Ui, Color32, Pos2, Rect, Vec2, Rounding};
 use egui_extras::{TableBuilder, Column};
 use tail_core::AppUsage;
-use tail_core::models::TimeRange;
+use tail_core::models::{TimeRange, TimeNavigationState};
 use chrono::{Timelike, Datelike, Local};
 
-use crate::components::{PageHeader, TimeRangeSelector, SectionDivider, EmptyState};
+use crate::components::{PageHeader, SectionDivider, EmptyState, TimeNavigationController, HierarchicalBarChart};
 use crate::icons::IconCache;
 use crate::theme::TaiLTheme;
+use crate::views::aggregation::DataAggregator;
 
 /// 统计视图
 pub struct StatisticsView<'a> {
@@ -16,6 +17,8 @@ pub struct StatisticsView<'a> {
     app_usage: &'a [AppUsage],
     /// 当前时间范围
     time_range: TimeRange,
+    /// 时间导航状态
+    navigation_state: &'a mut TimeNavigationState,
     /// 主题
     theme: &'a TaiLTheme,
     /// 图标缓存（可变引用以支持加载图标）
@@ -26,12 +29,14 @@ impl<'a> StatisticsView<'a> {
     pub fn new(
         app_usage: &'a [AppUsage],
         time_range: TimeRange,
+        navigation_state: &'a mut TimeNavigationState,
         theme: &'a TaiLTheme,
         icon_cache: &'a mut IconCache,
     ) -> Self {
         Self {
             app_usage,
             time_range,
+            navigation_state,
             theme,
             icon_cache,
         }
@@ -47,19 +52,62 @@ impl<'a> StatisticsView<'a> {
         
         ui.add_space(self.theme.spacing);
 
-        // 时间范围选择器
-        let selector_response = TimeRangeSelector::new(self.time_range, self.theme).show(ui);
-        if let Some(selected) = selector_response.selected {
-            new_time_range = Some(selected);
+        // 时间导航控制器
+        let controller = TimeNavigationController::new(self.navigation_state, self.theme);
+        let (go_back, go_today, go_yesterday) = controller.show(ui);
+        
+        // 处理导航事件
+        if go_back {
+            self.navigation_state.go_back();
+            new_time_range = Some(self.navigation_state.to_time_range());
+        } else if go_today {
+            let now = Local::now();
+            self.navigation_state.go_to_today(now.year(), now.month(), now.day());
+            new_time_range = Some(self.navigation_state.to_time_range());
+        } else if go_yesterday {
+            let yesterday = Local::now() - chrono::Duration::days(1);
+            self.navigation_state.go_to_yesterday(yesterday.year(), yesterday.month(), yesterday.day());
+            new_time_range = Some(self.navigation_state.to_time_range());
         }
 
         ui.add_space(self.theme.spacing);
 
-        // 时间分布图（可点击）
-        ui.add(SectionDivider::new(self.theme).with_title("时间分布 (点击柱子查看详情)"));
+        // 层级柱形图
+        ui.add(SectionDivider::new(self.theme).with_title("时间分布 (点击柱子下钻)"));
         ui.add_space(self.theme.spacing / 2.0);
-        if let Some(clicked_range) = self.show_time_distribution(ui) {
-            new_time_range = Some(clicked_range);
+        
+        let aggregator = DataAggregator::new(self.app_usage);
+        let periods = aggregator.aggregate(self.navigation_state);
+        
+        let chart = HierarchicalBarChart::new(
+            &periods,
+            self.navigation_state.level,
+            "",
+            self.theme,
+        );
+        
+        if let Some(clicked_index) = chart.show(ui) {
+            // 根据当前层级处理点击事件
+            match self.navigation_state.level {
+                tail_core::models::TimeNavigationLevel::Year => {
+                    // 年视图不显示，直接进入月视图
+                }
+                tail_core::models::TimeNavigationLevel::Month => {
+                    self.navigation_state.drill_into_month(clicked_index as u32);
+                    new_time_range = Some(self.navigation_state.to_time_range());
+                }
+                tail_core::models::TimeNavigationLevel::Week => {
+                    self.navigation_state.drill_into_week(clicked_index as u32);
+                    new_time_range = Some(self.navigation_state.to_time_range());
+                }
+                tail_core::models::TimeNavigationLevel::Day => {
+                    self.navigation_state.drill_into_day(clicked_index as u32);
+                    new_time_range = Some(self.navigation_state.to_time_range());
+                }
+                tail_core::models::TimeNavigationLevel::Hour => {
+                    // 小时视图是最底层，不再下钻
+                }
+            }
         }
 
         ui.add_space(self.theme.spacing);

@@ -1,9 +1,9 @@
 //! TaiL GUI - egui 应用
 
-use chrono::{DateTime, Utc, Local, Duration as ChronoDuration};
+use chrono::{DateTime, Utc, Local, Duration as ChronoDuration, Datelike};
 use egui::{Color32, Rounding, Vec2};
 use tail_core::{DbConfig, Repository, AppUsage, DailyGoal};
-use tail_core::models::TimeRange;
+use tail_core::models::{TimeRange, TimeNavigationState};
 use std::sync::Arc;
 
 use crate::icons::IconCache;
@@ -17,6 +17,9 @@ pub struct TaiLApp {
 
     /// 统计页面选中的时间范围
     stats_time_range: TimeRange,
+
+    /// 时间导航状态
+    navigation_state: TimeNavigationState,
 
     /// 数据库仓库
     repo: Arc<Repository>,
@@ -86,10 +89,15 @@ impl TaiLApp {
 
         let theme_type = ThemeType::default();
         let theme = theme_type.to_theme();
+        
+        // 初始化导航状态为当前年份的月视图
+        let current_year = Local::now().year();
+        let navigation_state = TimeNavigationState::new(current_year);
 
         Self {
             current_view: View::Dashboard,
             stats_time_range: TimeRange::Today,
+            navigation_state,
             repo: Arc::new(repo),
             dashboard_usage_cache: Vec::new(),
             stats_usage_cache: Vec::new(),
@@ -396,6 +404,7 @@ impl eframe::App for TaiLApp {
                         let mut view = StatisticsView::new(
                             &self.stats_usage_cache,
                             self.stats_time_range,
+                            &mut self.navigation_state,
                             &self.theme,
                             &mut self.icon_cache,
                         );

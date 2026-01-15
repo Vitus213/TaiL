@@ -154,6 +154,101 @@ impl TimeNavigationState {
         self.level = TimeNavigationLevel::Hour;
     }
 
+    /// 跳转到昨天
+    pub fn go_to_yesterday(&mut self, year: i32, month: u32, day: u32) {
+        self.selected_year = year;
+        self.selected_month = Some(month);
+        self.selected_day = Some(day);
+        self.selected_week = None;
+        self.level = TimeNavigationLevel::Hour;
+    }
+
+    /// 获取当前导航状态对应的时间范围
+    pub fn to_time_range(&self) -> TimeRange {
+        use chrono::{Datelike, Duration, NaiveDate, TimeZone, Utc};
+        
+        match self.level {
+            TimeNavigationLevel::Year => {
+                // 整年：1月1日 00:00 - 12月31日 23:59
+                let start = Utc.with_ymd_and_hms(self.selected_year, 1, 1, 0, 0, 0).unwrap();
+                let end = Utc.with_ymd_and_hms(self.selected_year, 12, 31, 23, 59, 59).unwrap();
+                TimeRange::Custom(start, end)
+            }
+            TimeNavigationLevel::Month => {
+                // 整月
+                let month = self.selected_month.unwrap_or(1);
+                let start = Utc.with_ymd_and_hms(self.selected_year, month, 1, 0, 0, 0).unwrap();
+                
+                // 计算月末
+                let next_month = if month == 12 {
+                    Utc.with_ymd_and_hms(self.selected_year + 1, 1, 1, 0, 0, 0).unwrap()
+                } else {
+                    Utc.with_ymd_and_hms(self.selected_year, month + 1, 1, 0, 0, 0).unwrap()
+                };
+                let end = next_month - Duration::seconds(1);
+                
+                TimeRange::Custom(start, end)
+            }
+            TimeNavigationLevel::Week => {
+                // 整周
+                let month = self.selected_month.unwrap_or(1);
+                let week = self.selected_week.unwrap_or(1);
+                
+                // 计算该周的起止日期
+                let first_day = NaiveDate::from_ymd_opt(self.selected_year, month, 1).unwrap();
+                let first_weekday = first_day.weekday().num_days_from_monday();
+                
+                // 计算该周的第一天（周一）
+                let week_start_day = ((week - 1) * 7) as i64 - first_weekday as i64 + 1;
+                let week_start = if week_start_day < 1 {
+                    first_day
+                } else {
+                    first_day + Duration::days(week_start_day - 1)
+                };
+                
+                let week_end = week_start + Duration::days(6);
+                
+                let start = Utc.from_utc_datetime(&week_start.and_hms_opt(0, 0, 0).unwrap());
+                let end = Utc.from_utc_datetime(&week_end.and_hms_opt(23, 59, 59).unwrap());
+                
+                TimeRange::Custom(start, end)
+            }
+            TimeNavigationLevel::Day => {
+                // 整周的7天
+                let month = self.selected_month.unwrap_or(1);
+                let week = self.selected_week.unwrap_or(1);
+                
+                // 计算该周的起止日期
+                let first_day = NaiveDate::from_ymd_opt(self.selected_year, month, 1).unwrap();
+                let first_weekday = first_day.weekday().num_days_from_monday();
+                
+                let week_start_day = ((week - 1) * 7) as i64 - first_weekday as i64 + 1;
+                let week_start = if week_start_day < 1 {
+                    first_day
+                } else {
+                    first_day + Duration::days(week_start_day - 1)
+                };
+                
+                let week_end = week_start + Duration::days(6);
+                
+                let start = Utc.from_utc_datetime(&week_start.and_hms_opt(0, 0, 0).unwrap());
+                let end = Utc.from_utc_datetime(&week_end.and_hms_opt(23, 59, 59).unwrap());
+                
+                TimeRange::Custom(start, end)
+            }
+            TimeNavigationLevel::Hour => {
+                // 整天的24小时
+                let month = self.selected_month.unwrap_or(1);
+                let day = self.selected_day.unwrap_or(1);
+                
+                let start = Utc.with_ymd_and_hms(self.selected_year, month, day, 0, 0, 0).unwrap();
+                let end = Utc.with_ymd_and_hms(self.selected_year, month, day, 23, 59, 59).unwrap();
+                
+                TimeRange::Custom(start, end)
+            }
+        }
+    }
+
     /// 获取当前路径的显示文本
     pub fn get_breadcrumb(&self) -> String {
         let mut parts = vec![format!("{}年", self.selected_year)];
