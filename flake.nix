@@ -83,6 +83,13 @@
         # Cargo Artifacts
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
+        # 字体包
+        fonts = with pkgs; [
+          jetbrains-mono      # 等宽英文字体
+          lxgw-wenkai         # 霞鹜文楷（中文）
+          noto-fonts-cjk-sans # Noto Sans CJK（中文后备）
+        ];
+
         # 运行时库依赖（用于 makeWrapper）
         runtimeLibs = pkgs.lib.makeLibraryPath [
           pkgs.wayland
@@ -90,6 +97,9 @@
           pkgs.libGL
           pkgs.mesa
         ];
+
+        # 字体路径（用于环境变量）
+        fontPaths = pkgs.lib.makeSearchPath "share/fonts" fonts;
 
         # Binary build - 原始构建
         tail-app-unwrapped = craneLib.buildPackage (commonArgs
@@ -107,17 +117,18 @@
         # 图标文件路径
         tailIconSvg = ./tail-gui/assets/icons/tail.svg;
 
-        # 包装后的二进制文件，设置运行时库路径，并安装图标和 desktop 文件
+        # 包装后的二进制文件，设置运行时库路径、字体路径，并安装图标和 desktop 文件
         tail-app = pkgs.runCommand "tail-app" {
           nativeBuildInputs = [ pkgs.makeWrapper ];
         } ''
           mkdir -p $out/bin
           mkdir -p $out/share/applications
           mkdir -p $out/share/icons/hicolor/scalable/apps
-          
+
           # 包装二进制文件
           makeWrapper ${tail-app-unwrapped}/bin/tail-app $out/bin/tail-app \
-            --prefix LD_LIBRARY_PATH : "${runtimeLibs}"
+            --prefix LD_LIBRARY_PATH : "${runtimeLibs}" \
+            --set TAIL_FONT_PATH "${fontPaths}"
           
           # 安装图标
           cp ${tailIconSvg} $out/share/icons/hicolor/scalable/apps/tail.svg
@@ -185,7 +196,7 @@ EOF
             # For testing IPC (can use socat to test socket)
             socat
             just
-          ]);
+          ] ++ fonts);  # 添加字体依赖
 
           shellHook = ''
             # Set up environment for Wayland development
@@ -203,6 +214,9 @@ EOF
             # 设置 fontconfig 路径，确保字体正确加载
             export FONTCONFIG_FILE="${pkgs.fontconfig.out}/etc/fonts/fonts.conf"
             export FONTCONFIG_PATH="${pkgs.fontconfig.out}/etc/fonts"
+
+            # 设置 TaiL 字体路径
+            export TAIL_FONT_PATH="${fontPaths}"
 
             # 设置 Rust 日志级别
             export RUST_LOG=info

@@ -17,4 +17,5 @@ tokio = { workspace = true }
 unix_socket = { workspace = true }
 image = { workspace = true }
 resvg = { workspace = true }
+shellexpand = "3.0"
 tail-core = { path = "../tail-core" }
