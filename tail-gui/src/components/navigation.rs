@@ -52,7 +52,7 @@ impl View {
     /// 侧边栏显示的图标（更简洁）
     pub fn sidebar_icon(&self) -> &'static str {
         match self {
-            View::Dashboard => "⊞",
+            View::Dashboard => "📊",
             View::Statistics => "≣",
             View::Details => "≡",
             View::Categories => "⌘",

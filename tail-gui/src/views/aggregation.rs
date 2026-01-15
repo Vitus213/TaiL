@@ -1,6 +1,6 @@
 //! 数据聚合逻辑 - 用于层级时间导航
 
-use chrono::{Datelike, Duration, NaiveDate, Timelike};
+use chrono::{Datelike, Duration, Local, NaiveDate, Timelike};
 use std::collections::HashMap;
 use tail_core::AppUsage;
 use tail_core::models::{PeriodUsage, TimeNavigationLevel, TimeNavigationState};
@@ -46,8 +46,10 @@ impl<'a> DataAggregator<'a> {
 
         for usage in self.app_usage {
             for event in &usage.window_events {
-                if event.timestamp.year() == year {
-                    let month = event.timestamp.month();
+                // 使用本地时间进行比较
+                let local_time = event.timestamp.with_timezone(&Local);
+                if local_time.year() == year {
+                    let month = local_time.month();
                     *monthly_usage.entry(month).or_insert(0) += event.duration_secs;
                 }
             }
@@ -68,8 +70,10 @@ impl<'a> DataAggregator<'a> {
 
         for usage in self.app_usage {
             for event in &usage.window_events {
-                if event.timestamp.year() == year && event.timestamp.month() == month {
-                    let day = event.timestamp.day();
+                // 使用本地时间进行比较
+                let local_time = event.timestamp.with_timezone(&Local);
+                if local_time.year() == year && local_time.month() == month {
+                    let day = local_time.day();
                     let week = Self::get_week_of_month(year, month, day);
                     *weekly_usage.entry(week).or_insert(0) += event.duration_secs;
                 }
@@ -140,17 +144,26 @@ impl<'a> DataAggregator<'a> {
     fn aggregate_by_day(&self, year: i32, month: u32, day: u32) -> Vec<PeriodUsage> {
         let mut hourly_usage: HashMap<u32, i64> = HashMap::new();
 
+        eprintln!("[DEBUG] aggregate_by_day - year={}, month={}, day={}, app_usage.len()={}",
+            year, month, day, self.app_usage.len());
+
         for usage in self.app_usage {
             for event in &usage.window_events {
-                if event.timestamp.year() == year
-                    && event.timestamp.month() == month
-                    && event.timestamp.day() == day
+                // 使用本地时间进行比较
+                let local_time = event.timestamp.with_timezone(&Local);
+                if local_time.year() == year
+                    && local_time.month() == month
+                    && local_time.day() == day
                 {
-                    let hour = event.timestamp.hour();
+                    let hour = local_time.hour();
                     *hourly_usage.entry(hour).or_insert(0) += event.duration_secs;
                 }
             }
         }
+
+        let total_hours: i64 = hourly_usage.values().sum();
+        eprintln!("[DEBUG] aggregate_by_day - hourly_usage.len()={}, total_hours={}",
+            hourly_usage.len(), total_hours);
 
         (0..24)
             .map(|hour| PeriodUsage {

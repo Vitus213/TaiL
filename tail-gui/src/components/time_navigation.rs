@@ -103,7 +103,7 @@ impl<'a> TimeNavigationController<'a> {
             if ui
                 .selectable_label(
                     is_this_month,
-                    egui::RichText::new("🗓️ 本月")
+                    egui::RichText::new("📅 本月")
                         .size(13.0)
                         .color(if is_this_month {
                             self.theme.primary_color

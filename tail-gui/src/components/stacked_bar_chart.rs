@@ -102,6 +102,34 @@ impl<'a> StackedBarChart<'a> {
             .unwrap_or(3600)
             .max(1800); // 最少30分钟作为最大值，避免全是小数据时柱子太满
 
+        // Y 轴刻度配置
+        let y_axis_width = 45.0;
+        let y_tick_count = 5;
+
+        // Y 轴时间格式化函数
+        let format_y_tick = |seconds: i64| -> String {
+            if seconds < 60 {
+                format!("{}m", seconds)
+            } else if seconds < 3600 {
+                let mins = seconds / 60;
+                format!("{}m", mins)
+            } else {
+                let hours = seconds as f32 / 3600.0;
+                if hours.fract() < 0.1 || hours.fract() > 0.9 {
+                    format!("{}h", hours.round() as i32)
+                } else if hours.fract() < 0.6 {
+                    format!("{}h", hours as i32)
+                } else {
+                    format!("{:.1}h", hours)
+                }
+            }
+        };
+
+        // 计算 Y 轴刻度值
+        let y_ticks: Vec<i64> = (0..y_tick_count)
+            .map(|i| max_seconds * i / (y_tick_count - 1))
+            .collect();
+
         // 获取所有出现过的应用（用于分配颜色）
         let mut all_apps: Vec<String> = self
             .time_slots
@@ -148,7 +176,7 @@ impl<'a> StackedBarChart<'a> {
         let chart_height = self.config.max_bar_height;
         let bar_width = 18.0;
         let bar_gap = 6.0;
-        let total_chart_width = bar_width * 24.0 + bar_gap * 23.0;
+        let total_chart_width = y_axis_width + bar_width * 24.0 + bar_gap * 23.0;
 
         ui.vertical(|ui| {
             // 图例区域
@@ -193,8 +221,43 @@ impl<'a> StackedBarChart<'a> {
                     ui.add_space(offset_x);
                 }
 
+                // Y 轴区域
+                ui.vertical(|ui| {
+                    ui.set_width(y_axis_width);
+
+                    let _chart_base_y = ui.cursor().min.y + chart_height;
+
+                    // 绘制 Y 轴刻度标签和网格线
+                    for &tick_seconds in y_ticks.iter() {
+                        let ratio = y_ticks.iter().position(|&x| x == tick_seconds).unwrap() as f32 / (y_tick_count - 1) as f32;
+                        let _y_pos = _chart_base_y - ratio * chart_height;
+
+                        // 刻度标签
+                        ui.label(
+                            egui::RichText::new(format_y_tick(tick_seconds))
+                                .size(self.theme.small_size)
+                                .color(self.theme.secondary_text_color),
+                        );
+
+                        // 网格线（使用 painter 在柱状图区域绘制）
+                    }
+                });
+
                 let start_x = ui.cursor().min.x;
                 let start_y = ui.cursor().min.y;
+
+                // 绘制水平网格线
+                for (i, _tick_seconds) in y_ticks.iter().enumerate().skip(1) {
+                    let ratio = i as f32 / (y_tick_count - 1) as f32;
+                    let y_pos = start_y + chart_height - ratio * chart_height;
+                    let line_start = Pos2::new(start_x, y_pos);
+                    let line_end = Pos2::new(start_x + bar_width * 24.0 + bar_gap * 23.0, y_pos);
+
+                    ui.painter().line_segment(
+                        [line_start, line_end],
+                        egui::Stroke::new(1.0, Color32::from_gray(40).gamma_multiply(0.3)),
+                    );
+                }
 
                 for (idx, slot) in self.time_slots.iter().enumerate() {
                     let bar_height = if slot.total_seconds > 0 {
@@ -258,10 +321,10 @@ impl<'a> StackedBarChart<'a> {
             // X 轴标签
             ui.add_space(4.0);
             ui.horizontal(|ui| {
-                // 计算居中偏移
+                // 计算居中偏移（包含 Y 轴宽度）
                 let offset_x = (available_width - total_chart_width) / 2.0;
                 if offset_x > 0.0 {
-                    ui.add_space(offset_x);
+                    ui.add_space(offset_x + y_axis_width);
                 }
 
                 let label_spacing = total_chart_width / 24.0;

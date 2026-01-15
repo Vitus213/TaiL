@@ -1,6 +1,6 @@
 //! TaiL GUI - 统计视图
 
-use chrono::{Datelike, Local};
+use chrono::{Datelike, Local, Utc};
 use egui::{Color32, Rect, Rounding, Ui, Vec2};
 use egui_extras::{Column, TableBuilder};
 use tail_core::AppUsage;
@@ -11,6 +11,7 @@ use crate::components::{
     EmptyState, HierarchicalBarChart, PageHeader, SectionDivider, QuickTimeRange,
     TimeNavigationController,
 };
+use crate::components::chart::{ChartDataBuilder, ChartGroupMode, ChartTimeGranularity, StackedBarChart, StackedBarChartConfig, StackedBarTooltip};
 use crate::icons::IconCache;
 use crate::theme::TaiLTheme;
 use crate::utils::duration;
@@ -26,6 +27,10 @@ pub struct StatisticsView<'a> {
     theme: &'a TaiLTheme,
     /// 图标缓存（可变引用以支持加载图标）
     icon_cache: &'a mut IconCache,
+    /// 是否使用堆叠视图
+    use_stacked_view: bool,
+    /// 悬停的时间槽索引
+    hovered_slot: Option<usize>,
 }
 
 impl<'a> StatisticsView<'a> {
@@ -34,17 +39,20 @@ impl<'a> StatisticsView<'a> {
         navigation_state: &'a mut TimeNavigationState,
         theme: &'a TaiLTheme,
         icon_cache: &'a mut IconCache,
+        use_stacked_view: bool,
     ) -> Self {
         Self {
             app_usage,
             navigation_state,
             theme,
             icon_cache,
+            use_stacked_view,
+            hovered_slot: None,
         }
     }
 
-    /// 渲染统计视图，返回新选择的时间范围（如果有变化）
-    pub fn show(&mut self, ui: &mut Ui) -> Option<TimeRange> {
+    /// 渲染统计视图，返回 (新选择的时间范围, 是否使用堆叠视图)
+    pub fn show(&mut self, ui: &mut Ui) -> (Option<TimeRange>, bool) {
         let mut new_time_range = None;
 
         // 页面标题
@@ -66,25 +74,44 @@ impl<'a> StatisticsView<'a> {
             eprintln!("[DEBUG] 统计视图 - 快捷时间范围被选择: {:?}", quick);
             match quick {
                 QuickTimeRange::Today => {
+                    // 今天 - 显示24小时
                     self.navigation_state.go_to_today(now.year(), now.month(), now.day());
-                    new_time_range = Some(self.navigation_state.to_time_range());
+                    new_time_range = Some(TimeRange::Today);
                 }
                 QuickTimeRange::ThisWeek => {
-                    self.navigation_state.switch_to_this_week(now.year(), now.month());
-                    new_time_range = Some(self.navigation_state.to_time_range());
+                    // 本周 - 显示7天
+                    // 设置 level = Day，不设置 selected_week，这样 to_time_range() 返回整月
+                    // 然后数据会聚合为7天
+                    self.navigation_state.selected_year = now.year();
+                    self.navigation_state.selected_month = Some(now.month());
+                    self.navigation_state.selected_week = None;
+                    self.navigation_state.selected_day = None;
+                    self.navigation_state.level = tail_core::models::TimeNavigationLevel::Day;
+                    // 使用本周的时间范围（从周一开始）
+                    let weekday = now.date_naive().weekday().num_days_from_monday();
+                    let week_start = now.date_naive() - chrono::Duration::days(weekday as i64);
+                    let week_start_dt = week_start.and_hms_opt(0, 0, 0).unwrap()
+                        .and_local_timezone(Local).unwrap()
+                        .with_timezone(&Utc);
+                    let week_end = week_start_dt + chrono::Duration::days(7);
+                    new_time_range = Some(TimeRange::Custom(week_start_dt, week_end));
                 }
                 QuickTimeRange::ThisMonth => {
-                    eprintln!("[DEBUG] 统计视图 - 切换到本月: year={}, month={}", now.year(), now.month());
-                    self.navigation_state.switch_to_this_month(now.year(), now.month());
-                    eprintln!("[DEBUG] 统计视图 - 导航状态更新后: level={:?}, year={}, month={:?}, week={:?}",
-                        self.navigation_state.level,
-                        self.navigation_state.selected_year,
-                        self.navigation_state.selected_month,
-                        self.navigation_state.selected_week);
+                    // 本月 - 显示该月的周
+                    self.navigation_state.selected_year = now.year();
+                    self.navigation_state.selected_month = Some(now.month());
+                    self.navigation_state.selected_week = None;
+                    self.navigation_state.selected_day = None;
+                    self.navigation_state.level = tail_core::models::TimeNavigationLevel::Week;
                     new_time_range = Some(self.navigation_state.to_time_range());
                 }
                 QuickTimeRange::ThisYear => {
-                    self.navigation_state.switch_to_this_year(now.year());
+                    // 本年 - 显示12个月
+                    self.navigation_state.selected_year = now.year();
+                    self.navigation_state.selected_month = None;
+                    self.navigation_state.selected_week = None;
+                    self.navigation_state.selected_day = None;
+                    self.navigation_state.level = tail_core::models::TimeNavigationLevel::Month;
                     new_time_range = Some(self.navigation_state.to_time_range());
                 }
             }
@@ -96,43 +123,74 @@ impl<'a> StatisticsView<'a> {
 
         ui.add_space(self.theme.spacing);
 
-        // 层级柱形图
-        ui.add(SectionDivider::new(self.theme).with_title("时间分布 (点击柱子下钻)"));
+        // 图表类型切换按钮
+        ui.horizontal(|ui| {
+            ui.label("图表类型:");
+            if ui
+                .selectable_label(!self.use_stacked_view, "📊 简单柱形图")
+                .clicked()
+            {
+                eprintln!("[DEBUG] 切换到简单柱形图");
+                self.use_stacked_view = false;
+            }
+            if ui
+                .selectable_label(self.use_stacked_view, "📈 堆叠柱形图")
+                .clicked()
+            {
+                eprintln!("[DEBUG] 切换到堆叠柱形图");
+                self.use_stacked_view = true;
+            }
+        });
+
         ui.add_space(self.theme.spacing / 2.0);
 
-        let aggregator = DataAggregator::new(self.app_usage);
-        let periods = aggregator.aggregate(self.navigation_state);
-        
-        eprintln!("[DEBUG] 统计视图 - 聚合数据: level={:?}, periods.len()={}",
-            self.navigation_state.level, periods.len());
-        for (i, period) in periods.iter().enumerate().take(5) {
-            eprintln!("[DEBUG] 统计视图 - Period[{}]: label={}, total_seconds={}",
-                i, period.label, period.total_seconds);
-        }
+        eprintln!("[DEBUG] 准备显示图表, use_stacked_view={}", self.use_stacked_view);
 
-        let chart =
-            HierarchicalBarChart::new(&periods, self.navigation_state.level, "", self.theme);
+        // 层级柱形图或堆叠柱形图
+        if self.use_stacked_view {
+            eprintln!("[DEBUG] 进入堆叠柱形图分支");
+            ui.add(SectionDivider::new(self.theme).with_title("时间分布 (按应用堆叠)"));
+            ui.add_space(self.theme.spacing / 2.0);
+            eprintln!("[DEBUG] 即将调用 show_stacked_chart");
+            self.show_stacked_chart(ui);
+            eprintln!("[DEBUG] show_stacked_chart 返回");
+        } else {
+            ui.add(SectionDivider::new(self.theme).with_title("时间分布 (点击柱子下钻)"));
+            ui.add_space(self.theme.spacing / 2.0);
+            let aggregator = DataAggregator::new(self.app_usage);
+            let periods = aggregator.aggregate(self.navigation_state);
 
-        if let Some(clicked_index) = chart.show(ui) {
-            // 根据当前层级处理点击事件
-            match self.navigation_state.level {
-                tail_core::models::TimeNavigationLevel::Year => {
-                    // 年视图不显示，直接进入月视图
-                }
-                tail_core::models::TimeNavigationLevel::Month => {
-                    self.navigation_state.drill_into_month(clicked_index as u32);
-                    new_time_range = Some(self.navigation_state.to_time_range());
-                }
-                tail_core::models::TimeNavigationLevel::Week => {
-                    self.navigation_state.drill_into_week(clicked_index as u32);
-                    new_time_range = Some(self.navigation_state.to_time_range());
-                }
-                tail_core::models::TimeNavigationLevel::Day => {
-                    self.navigation_state.drill_into_day(clicked_index as u32);
-                    new_time_range = Some(self.navigation_state.to_time_range());
-                }
-                tail_core::models::TimeNavigationLevel::Hour => {
-                    // 小时视图是最底层，不再下钻
+            eprintln!("[DEBUG] 统计视图 - 聚合数据: level={:?}, periods.len()={}",
+                self.navigation_state.level, periods.len());
+            for (i, period) in periods.iter().enumerate().take(5) {
+                eprintln!("[DEBUG] 统计视图 - Period[{}]: label={}, total_seconds={}",
+                    i, period.label, period.total_seconds);
+            }
+
+            let chart =
+                HierarchicalBarChart::new(&periods, self.navigation_state.level, "", self.theme);
+
+            if let Some(clicked_index) = chart.show(ui) {
+                // 根据当前层级处理点击事件
+                match self.navigation_state.level {
+                    tail_core::models::TimeNavigationLevel::Year => {
+                        // 年视图不显示，直接进入月视图
+                    }
+                    tail_core::models::TimeNavigationLevel::Month => {
+                        self.navigation_state.drill_into_month(clicked_index as u32);
+                        new_time_range = Some(self.navigation_state.to_time_range());
+                    }
+                    tail_core::models::TimeNavigationLevel::Week => {
+                        self.navigation_state.drill_into_week(clicked_index as u32);
+                        new_time_range = Some(self.navigation_state.to_time_range());
+                    }
+                    tail_core::models::TimeNavigationLevel::Day => {
+                        self.navigation_state.drill_into_day(clicked_index as u32);
+                        new_time_range = Some(self.navigation_state.to_time_range());
+                    }
+                    tail_core::models::TimeNavigationLevel::Hour => {
+                        // 小时视图是最底层，不再下钻
+                    }
                 }
             }
         }
@@ -144,7 +202,7 @@ impl<'a> StatisticsView<'a> {
         ui.add_space(self.theme.spacing / 2.0);
         self.show_app_table(ui);
 
-        new_time_range
+        (new_time_range, self.use_stacked_view)
     }
 
     /// 显示应用详情表格
@@ -312,6 +370,90 @@ impl<'a> StatisticsView<'a> {
                     });
                 }
             });
+    }
+
+    /// 显示堆叠柱状图（按应用堆叠）
+    fn show_stacked_chart(&mut self, ui: &mut Ui) {
+        // 根据当前导航状态确定时间粒度
+        // 快捷选项的 level 设置：
+        // - Today: level = Hour (显示24小时)
+        // - ThisWeek: level = Day, selected_week = None (显示7天)
+        // - ThisMonth: level = Week (显示该月的周)
+        // - ThisYear: level = Month (显示12个月)
+
+        let granularity = match self.navigation_state.level {
+            tail_core::models::TimeNavigationLevel::Month => {
+                // Month level 表示显示12个月（本年快捷选项）
+                ChartTimeGranularity::Year
+            }
+            tail_core::models::TimeNavigationLevel::Week => {
+                // Week level 表示显示该月的周（本月快捷选项）
+                ChartTimeGranularity::Month
+            }
+            tail_core::models::TimeNavigationLevel::Day => {
+                // Day level:
+                // - 如果 selected_week 是 None，表示显示7天（本周快捷选项）
+                // - 如果 selected_week 有值，表示显示该周7天
+                ChartTimeGranularity::Week
+            }
+            tail_core::models::TimeNavigationLevel::Hour => {
+                // Hour level 表示显示24小时（今天快捷选项）
+                ChartTimeGranularity::Day
+            }
+            tail_core::models::TimeNavigationLevel::Year => {
+                // Year level 不应该出现在快捷选项中
+                ChartTimeGranularity::Year
+            }
+        };
+
+        eprintln!("[DEBUG] show_stacked_chart - level={:?}, granularity={:?}, app_usage.len()={}",
+            self.navigation_state.level, granularity, self.app_usage.len());
+
+        // 如果数据为空，显示空状态而不是尝试构建图表
+        if self.app_usage.is_empty() {
+            ui.add(EmptyState::new(
+                "📊",
+                "暂无数据",
+                "请选择其他时间范围",
+                self.theme,
+            ));
+            return;
+        }
+
+        let chart_data = ChartDataBuilder::new(self.app_usage)
+            .with_granularity(granularity)
+            .with_group_mode(ChartGroupMode::ByApp)
+            .build();
+
+        eprintln!("[DEBUG] show_stacked_chart - chart_data.time_slots.len()={}, max_seconds={}",
+            chart_data.time_slots.len(), chart_data.max_seconds());
+
+        if chart_data.time_slots.is_empty() {
+            ui.label("暂无数据");
+            return;
+        }
+
+        let config = StackedBarChartConfig {
+            max_bar_height: 200.0,
+            ..Default::default()
+        };
+
+        eprintln!("[DEBUG] show_stacked_chart - 准备显示图表");
+
+        let chart = StackedBarChart::new(&chart_data, self.theme).with_config(config);
+
+        eprintln!("[DEBUG] show_stacked_chart - 开始调用 chart.show()");
+        self.hovered_slot = chart.show(ui);
+        eprintln!("[DEBUG] show_stacked_chart - chart.show() 返回, hovered_slot={:?}", self.hovered_slot);
+
+        // 显示悬停提示
+        if let Some(idx) = self.hovered_slot
+            && let Some(slot) = chart_data.time_slots.get(idx)
+        {
+            eprintln!("[DEBUG] show_stacked_chart - 显示 tooltip, idx={}, label={}", idx, slot.label);
+            let tooltip = StackedBarTooltip::new(slot);
+            tooltip.show(ui, self.theme);
+        }
     }
 }
 

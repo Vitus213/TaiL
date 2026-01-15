@@ -2,6 +2,7 @@
 
 pub mod alias_dialog;
 pub mod app_card;
+pub mod chart;
 pub mod header;
 pub mod hierarchical_chart;
 pub mod navigation;
@@ -15,6 +16,7 @@ pub mod top_tab;
 
 pub use alias_dialog::*;
 pub use app_card::*;
+pub use chart::*;
 pub use header::*;
 pub use hierarchical_chart::*;
 pub use navigation::*;

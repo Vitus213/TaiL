@@ -1,14 +1,12 @@
 //! TaiL GUI - 仪表板视图
 
-use chrono::Local;
-use chrono::Timelike;
 use egui::{ScrollArea, Ui};
 use tail_core::AppUsage;
 
 use crate::components::{
-    AppCard, EmptyState, EnhancedProgressBar, PageHeader, SectionDivider, StackedBarChart,
-    StackedBarChartConfig, StatCard, TimeSlotData,
+    AppCard, EmptyState, EnhancedProgressBar, PageHeader, SectionDivider, StatCard,
 };
+use crate::components::chart::{ChartDataBuilder, ChartGroupMode, ChartTimeGranularity, StackedBarChart, StackedBarChartConfig, StackedBarTooltip};
 use crate::icons::IconCache;
 use crate::theme::TaiLTheme;
 use crate::utils::duration;
@@ -95,20 +93,19 @@ impl<'a> DashboardView<'a> {
             ui.spacing_mut().item_spacing.x = self.theme.spacing;
 
             // 总使用时间卡片 + 生产力评分（在副标题中显示）
-            let first_card_subtitle = if total_seconds > 0 {
-                Some(format!("生产力 {}%", productivity_score))
-            } else {
-                None
-            };
             ui.add(
                 StatCard::new(
                     "总使用时间",
                     &duration::format_duration(total_seconds),
-                    "⏱️",
+                    "🕐",
                     self.theme,
                 )
                 .accent_color(self.theme.primary_color)
-                .with_subtitle_option(first_card_subtitle.as_deref()),
+                .with_subtitle_option(
+                    (total_seconds > 0)
+                        .then(|| format!("生产力 {}%", productivity_score))
+                        .as_deref()
+                ),
             );
 
             // 活跃应用数量
@@ -186,9 +183,18 @@ impl<'a> DashboardView<'a> {
 
     /// 显示堆叠柱状图
     fn show_stacked_chart(&mut self, ui: &mut Ui) {
-        let time_slots = self.create_time_slots();
+        eprintln!("[DEBUG] dashboard - app_usage.len()={}", self.app_usage.len());
 
-        if time_slots.iter().all(|s| s.total_seconds == 0) {
+        // 使用新的图表数据构建器
+        let chart_data = ChartDataBuilder::new(self.app_usage)
+            .with_granularity(ChartTimeGranularity::Day)
+            .with_group_mode(ChartGroupMode::ByApp)
+            .build();
+
+        eprintln!("[DEBUG] dashboard - chart_data.time_slots.len()={}, max_seconds={}, total_seconds={}",
+            chart_data.time_slots.len(), chart_data.max_seconds(), chart_data.total_seconds);
+
+        if chart_data.time_slots.iter().all(|s| s.total_seconds == 0) {
             ui.add(EmptyState::new(
                 "📊",
                 "暂无时间分布数据",
@@ -200,59 +206,20 @@ impl<'a> DashboardView<'a> {
 
         let config = StackedBarChartConfig {
             max_bar_height: 180.0,
+            show_hover_highlight: false,
             ..Default::default()
         };
 
-        let chart = StackedBarChart::new(&time_slots, self.theme).with_config(config);
-
+        let chart = StackedBarChart::new(&chart_data, self.theme).with_config(config);
         self.hovered_slot = chart.show(ui);
 
         // 显示悬停提示
         if let Some(idx) = self.hovered_slot
-            && let Some(slot) = time_slots.get(idx)
+            && let Some(slot) = chart_data.time_slots.get(idx)
         {
-            let mut top_apps: Vec<_> = slot
-                .app_durations
-                .iter()
-                .map(|(k, v)| (k.clone(), *v))
-                .collect();
-            top_apps.sort_by(|a, b| b.1.cmp(&a.1));
-
-            use crate::components::StackedBarTooltip;
-            let tooltip = StackedBarTooltip {
-                hour: slot.hour,
-                total_seconds: slot.total_seconds,
-                top_apps,
-            };
+            let tooltip = StackedBarTooltip::new(slot);
             tooltip.show(ui, self.theme);
         }
-    }
-
-    /// 创建时间槽数据（按小时分组）
-    fn create_time_slots(&self) -> Vec<TimeSlotData> {
-        let mut slots: Vec<TimeSlotData> = (0..24).map(TimeSlotData::new).collect();
-
-        for usage in self.app_usage {
-            if usage.app_name.is_empty() {
-                continue;
-            }
-
-            for event in &usage.window_events {
-                if event.is_afk {
-                    continue;
-                }
-
-                let local_time = event.timestamp.with_timezone(&Local);
-                let hour = local_time.hour();
-                if hour < 24
-                    && let Some(slot) = slots.get_mut(hour as usize)
-                {
-                    slot.add_app(usage.app_name.clone(), event.duration_secs);
-                }
-            }
-        }
-
-        slots
     }
 
     /// 显示应用列表
@@ -293,6 +260,7 @@ impl<'a> DashboardView<'a> {
             })
             .collect();
 
+        // 使用 ScrollArea 占满宽度
         ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {

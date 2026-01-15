@@ -3,9 +3,10 @@
 use chrono::{DateTime, Utc};
 use egui::{Color32, Rounding, ScrollArea, Stroke, Ui, Vec2};
 use std::collections::HashSet;
-use tail_core::{CATEGORY_ICONS, Category, CategoryUsage, Repository};
+use tail_core::{AppUsage, CATEGORY_ICONS, Category, CategoryUsage, Repository};
 
 use crate::components::{EmptyState, PageHeader, SectionDivider, StatCard};
+use crate::components::chart::{ChartDataBuilder, ChartGroupMode, ChartTimeGranularity, StackedBarChart, StackedBarChartConfig, StackedBarTooltip};
 use crate::icons::ui_icons::categories as icons;
 use crate::theme::TaiLTheme;
 use crate::utils::duration;
@@ -30,6 +31,8 @@ pub struct CategoriesView {
     category_usage: Vec<CategoryUsage>,
     /// 所有分类列表
     categories: Vec<Category>,
+    /// 应用使用数据（用于堆叠柱形图）
+    app_usage: Vec<AppUsage>,
     /// 主题
     theme: TaiLTheme,
     /// 是否显示添加分类对话框
@@ -56,6 +59,8 @@ pub struct CategoriesView {
     show_icon_picker: bool,
     /// 是否需要刷新数据
     needs_refresh: bool,
+    /// 悬停的时间槽索引
+    hovered_slot: Option<usize>,
 }
 
 impl CategoriesView {
@@ -63,6 +68,7 @@ impl CategoriesView {
         Self {
             category_usage: Vec::new(),
             categories: Vec::new(),
+            app_usage: Vec::new(),
             theme,
             show_add_dialog: false,
             show_edit_dialog: false,
@@ -76,6 +82,7 @@ impl CategoriesView {
             all_apps: Vec::new(),
             show_icon_picker: false,
             needs_refresh: false,
+            hovered_slot: None,
         }
     }
 
@@ -105,6 +112,11 @@ impl CategoriesView {
         if let Ok(apps) = repo.get_all_app_names() {
             self.all_apps = apps;
         }
+
+        // 加载应用使用数据（用于堆叠柱形图）
+        if let Ok(usage) = repo.get_app_usage(start, end) {
+            self.app_usage = usage;
+        }
     }
 
     /// 渲染分类视图
@@ -124,6 +136,13 @@ impl CategoriesView {
 
         // 统计卡片
         self.show_stat_cards(ui);
+
+        ui.add_space(self.theme.spacing);
+
+        // 时间分布堆叠柱形图（按分类）
+        ui.add(SectionDivider::new(&self.theme).with_title("时间分布 · 按分类堆叠"));
+        ui.add_space(self.theme.spacing / 2.0);
+        self.show_stacked_chart(ui, repo);
 
         ui.add_space(self.theme.spacing);
 
@@ -214,6 +233,51 @@ impl CategoriesView {
                 );
             }
         });
+    }
+
+    /// 显示堆叠柱状图（按分类堆叠）
+    fn show_stacked_chart(&mut self, ui: &mut Ui, repo: &Repository) {
+        if self.app_usage.is_empty() {
+            ui.add(EmptyState::new(
+                "📊",
+                "暂无时间分布数据",
+                "活动数据会在这里显示",
+                &self.theme,
+            ));
+            return;
+        }
+
+        let chart_data = ChartDataBuilder::new(&self.app_usage)
+            .with_repository(repo)
+            .with_granularity(ChartTimeGranularity::Day)
+            .with_group_mode(ChartGroupMode::ByCategory)
+            .build();
+
+        if chart_data.time_slots.iter().all(|s| s.total_seconds == 0) {
+            ui.add(EmptyState::new(
+                "📊",
+                "暂无时间分布数据",
+                "活动数据会在这里显示",
+                &self.theme,
+            ));
+            return;
+        }
+
+        let config = StackedBarChartConfig {
+            max_bar_height: 180.0,
+            ..Default::default()
+        };
+
+        let chart = StackedBarChart::new(&chart_data, &self.theme).with_config(config);
+        self.hovered_slot = chart.show(ui);
+
+        // 显示悬停提示
+        if let Some(idx) = self.hovered_slot
+            && let Some(slot) = chart_data.time_slots.get(idx)
+        {
+            let tooltip = StackedBarTooltip::new(slot);
+            tooltip.show(ui, &self.theme);
+        }
     }
 
     /// 显示分类列表

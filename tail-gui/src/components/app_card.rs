@@ -181,7 +181,9 @@ impl<'a> AppCard<'a> {
 
             // 中间：应用名称和窗口标题
             let text_left = icon_rect.right() + 12.0;
-            let text_width = content_rect.width() - icon_size - 120.0;
+            // 计算右侧文本占用的宽度（时长和百分比）
+            let right_text_width = 100.0; // 右侧区域宽度
+            let text_width = content_rect.width() - icon_size - 12.0 - right_text_width;
 
             // 应用名称
             painter.text(

@@ -24,6 +24,9 @@ pub struct TaiLApp {
     /// 时间导航状态
     navigation_state: TimeNavigationState,
 
+    /// 统计页面是否使用堆叠视图
+    stats_use_stacked_view: bool,
+
     /// 数据库仓库
     repo: Arc<Repository>,
 
@@ -100,6 +103,7 @@ impl TaiLApp {
             current_view: View::Dashboard,
             stats_time_range: TimeRange::Today,
             navigation_state,
+            stats_use_stacked_view: false,
             repo: Arc::new(repo),
             dashboard_usage_cache: Vec::new(),
             stats_usage_cache: Vec::new(),
@@ -176,15 +180,21 @@ impl TaiLApp {
         }
 
         let (start, end) = self.get_stats_time_range_bounds();
-        eprintln!("[DEBUG] app.rs - 刷新统计数据: start={:?}, end={:?}", start, end);
+        eprintln!("[DEBUG] app.rs - 刷新统计数据: stats_time_range={:?}, start={:?}, end={:?}",
+            self.stats_time_range, start, end);
 
         match self.repo.get_app_usage(start, end) {
             Ok(usage) => {
                 eprintln!("[DEBUG] app.rs - 获取到 {} 条应用使用记录", usage.len());
+                for (i, u) in usage.iter().take(3).enumerate() {
+                    eprintln!("[DEBUG] app.rs - usage[{}]: app_name={}, total_seconds={}, events.len()={}",
+                        i, u.app_name, u.total_seconds, u.window_events.len());
+                }
                 tracing::debug!("统计页面获取 {} 条应用使用记录", usage.len());
                 self.stats_usage_cache = usage;
             }
             Err(e) => {
+                eprintln!("[DEBUG] app.rs - 获取统计数据失败: {}", e);
                 tracing::error!("获取统计数据失败: {}", e);
             }
         }
@@ -383,11 +393,14 @@ impl eframe::App for TaiLApp {
                             &mut self.navigation_state,
                             &self.theme,
                             &mut self.icon_cache,
+                            self.stats_use_stacked_view,
                         );
-                        if let Some(new_range) = view.show(ui) {
-                            self.stats_time_range = new_range;
+                        let (new_range, use_stacked) = view.show(ui);
+                        if let Some(range) = new_range {
+                            self.stats_time_range = range;
                             self.stats_last_refresh = None; // 强制刷新
                         }
+                        self.stats_use_stacked_view = use_stacked;
                     }
                     View::Categories => {
                         // 检查是否需要刷新数据
