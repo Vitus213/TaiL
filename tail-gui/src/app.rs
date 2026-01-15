@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use crate::icons::IconCache;
 use crate::theme::{TaiLTheme, ThemeType};
-use crate::views::{DashboardView, StatisticsView, SettingsView, SettingsAction, AddGoalDialog};
+use crate::views::{DashboardView, StatisticsView, SettingsView, SettingsAction, AddGoalDialog, CategoriesView};
 
 /// TaiL GUI 应用
 pub struct TaiLApp {
@@ -36,6 +36,9 @@ pub struct TaiLApp {
     /// 统计页面上次刷新时间
     stats_last_refresh: Option<DateTime<Utc>>,
 
+    /// 分类页面上次刷新时间
+    categories_last_refresh: Option<DateTime<Utc>>,
+
     /// 主题类型
     theme_type: ThemeType,
 
@@ -47,6 +50,9 @@ pub struct TaiLApp {
 
     /// 添加目标对话框
     add_goal_dialog: AddGoalDialog,
+
+    /// 分类视图（持久化状态）
+    categories_view: CategoriesView,
 
     /// 是否已应用主题
     theme_applied: bool,
@@ -60,6 +66,7 @@ pub struct TaiLApp {
 enum View {
     Dashboard,
     Statistics,
+    Categories,
     Settings,
 }
 
@@ -89,10 +96,12 @@ impl TaiLApp {
             daily_goals_cache: Vec::new(),
             dashboard_last_refresh: None,
             stats_last_refresh: None,
+            categories_last_refresh: None,
             theme_type,
-            theme,
+            theme: theme.clone(),
             icon_cache: IconCache::new(),
             add_goal_dialog: AddGoalDialog::new(),
+            categories_view: CategoriesView::new(theme),
             theme_applied: false,
             was_visible: true,
         }
@@ -280,6 +289,7 @@ impl eframe::App for TaiLApp {
         match self.current_view {
             View::Dashboard => self.refresh_dashboard_data(),
             View::Statistics => self.refresh_stats_data(),
+            View::Categories => self.refresh_dashboard_data(), // 分类页面也刷新仪表板数据
             View::Settings => self.refresh_dashboard_data(), // 设置页面也刷新仪表板数据
         }
 
@@ -307,6 +317,7 @@ impl eframe::App for TaiLApp {
                     let nav_items = [
                         (View::Dashboard, "仪表板", "📊"),
                         (View::Statistics, "统计", "📈"),
+                        (View::Categories, "分类", "📂"),
                         (View::Settings, "设置", "⚙"),
                     ];
 
@@ -392,6 +403,24 @@ impl eframe::App for TaiLApp {
                             self.stats_time_range = new_range;
                             self.stats_last_refresh = None; // 强制刷新
                         }
+                    }
+                    View::Categories => {
+                        // 检查是否需要刷新数据
+                        let now = Utc::now();
+                        let should_refresh = self.categories_view.needs_refresh() ||
+                            self.categories_last_refresh
+                                .map(|last| now.signed_duration_since(last).num_seconds() >= 5)
+                                .unwrap_or(true);
+                        
+                        if should_refresh {
+                            let (start, end) = self.get_stats_time_range_bounds();
+                            self.categories_view.load_data(&self.repo, start, end);
+                            self.categories_last_refresh = Some(now);
+                            self.categories_view.clear_refresh_flag();
+                        }
+                        
+                        // 使用持久化的分类视图
+                        self.categories_view.show(ui, &self.repo);
                     }
                     View::Settings => {
                         let view = SettingsView::new(
