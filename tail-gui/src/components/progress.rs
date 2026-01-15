@@ -99,13 +99,13 @@ impl<'a> Widget for EnhancedProgressBar<'a> {
         } else {
             self.height
         };
-        
+
         let desired_size = Vec2::new(ui.available_width(), total_height);
         let (rect, response) = ui.allocate_exact_size(desired_size, Sense::hover());
 
         if ui.is_rect_visible(rect) {
             let painter = ui.painter();
-            
+
             // 标签和百分比
             let bar_top = if self.label.is_some() || self.show_percentage {
                 // 绘制标签
@@ -118,7 +118,7 @@ impl<'a> Widget for EnhancedProgressBar<'a> {
                         self.theme.text_color,
                     );
                 }
-                
+
                 // 绘制百分比
                 if self.show_percentage {
                     painter.text(
@@ -129,7 +129,7 @@ impl<'a> Widget for EnhancedProgressBar<'a> {
                         self.theme.secondary_text_color,
                     );
                 }
-                
+
                 rect.min.y + 18.0
             } else {
                 rect.min.y
@@ -151,11 +151,9 @@ impl<'a> Widget for EnhancedProgressBar<'a> {
             // 填充
             if self.fraction > 0.0 {
                 let fill_width = bar_rect.width() * self.fraction;
-                let fill_rect = Rect::from_min_size(
-                    bar_rect.min,
-                    Vec2::new(fill_width, self.height),
-                );
-                
+                let fill_rect =
+                    Rect::from_min_size(bar_rect.min, Vec2::new(fill_width, self.height));
+
                 painter.rect_filled(
                     fill_rect,
                     Rounding::same(self.height / 2.0),
@@ -252,18 +250,18 @@ impl<'a> Widget for CircularProgress<'a> {
             if self.fraction > 0.0 {
                 let start_angle = -std::f32::consts::FRAC_PI_2; // 从顶部开始
                 let end_angle = start_angle + self.fraction * std::f32::consts::TAU;
-                
+
                 // 使用多个线段绘制圆弧
                 let segments = (self.fraction * 60.0).max(1.0) as usize;
                 let angle_step = (end_angle - start_angle) / segments as f32;
-                
+
                 for i in 0..segments {
                     let a1 = start_angle + i as f32 * angle_step;
                     let a2 = start_angle + (i + 1) as f32 * angle_step;
-                    
+
                     let p1 = center + Vec2::new(a1.cos(), a1.sin()) * self.radius;
                     let p2 = center + Vec2::new(a2.cos(), a2.sin()) * self.radius;
-                    
+
                     painter.line_segment(
                         [p1, p2],
                         egui::Stroke::new(self.stroke_width, self.get_color()),
@@ -341,15 +339,11 @@ impl<'a> Widget for GoalProgressCard<'a> {
                 self.theme.card_background
             };
 
-            painter.rect_filled(
-                rect,
-                Rounding::same(self.theme.card_rounding),
-                bg_color,
-            );
+            painter.rect_filled(rect, Rounding::same(self.theme.card_rounding), bg_color);
 
             let content_rect = rect.shrink(padding);
             let fraction = (self.current_minutes as f32 / self.target_minutes as f32).min(1.5);
-            
+
             // 状态颜色
             let status_color = if fraction > 1.0 {
                 self.theme.danger_color
@@ -403,11 +397,7 @@ impl<'a> Widget for GoalProgressCard<'a> {
                 bar_rect.min,
                 Vec2::new(bar_rect.width() * fill_fraction, bar_height),
             );
-            painter.rect_filled(
-                fill_rect,
-                Rounding::same(bar_height / 2.0),
-                status_color,
-            );
+            painter.rect_filled(fill_rect, Rounding::same(bar_height / 2.0), status_color);
 
             // 超出部分（如果超过目标）
             if fraction > 1.0 {

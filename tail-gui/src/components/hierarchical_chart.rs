@@ -4,6 +4,7 @@ use egui::{Color32, Pos2, Rect, Sense, Stroke, Ui, Vec2};
 use tail_core::models::{PeriodUsage, TimeNavigationLevel};
 
 use crate::theme::TaiLTheme;
+use crate::utils::duration;
 
 /// 层级柱形图组件
 pub struct HierarchicalBarChart<'a> {
@@ -77,7 +78,8 @@ impl<'a> HierarchicalBarChart<'a> {
                 };
                 let y = chart_rect.max.y - 20.0 - normalized_height;
 
-                let bar_rect = Rect::from_min_size(Pos2::new(x, y), Vec2::new(bar_width, normalized_height));
+                let bar_rect =
+                    Rect::from_min_size(Pos2::new(x, y), Vec2::new(bar_width, normalized_height));
 
                 // 检测鼠标交互
                 let bar_response = ui.interact(bar_rect, ui.id().with(i), Sense::click());
@@ -94,10 +96,7 @@ impl<'a> HierarchicalBarChart<'a> {
                 painter.rect_stroke(bar_rect, 2.0, Stroke::new(1.0, self.theme.divider_color));
 
                 // 绘制标签
-                let label_pos = Pos2::new(
-                    x + bar_width / 2.0,
-                    chart_rect.max.y - 10.0,
-                );
+                let label_pos = Pos2::new(x + bar_width / 2.0, chart_rect.max.y - 10.0);
                 painter.text(
                     label_pos,
                     egui::Align2::CENTER_CENTER,
@@ -108,11 +107,15 @@ impl<'a> HierarchicalBarChart<'a> {
 
                 // 悬停提示
                 let bar_response = if bar_response.hovered() {
-                    bar_response.on_hover_text(format!("{}: {}", period.label, self.format_duration(period.total_seconds)))
+                    bar_response.on_hover_text(format!(
+                        "{}: {}",
+                        period.label,
+                        duration::format_duration_chinese(period.total_seconds)
+                    ))
                 } else {
                     bar_response
                 };
-                
+
                 // 点击事件
                 if bar_response.clicked() {
                     clicked_index = Some(period.index);
@@ -130,7 +133,7 @@ impl<'a> HierarchicalBarChart<'a> {
         }
 
         let ratio = seconds as f32 / max_seconds as f32;
-        
+
         if ratio > 0.75 {
             self.theme.primary_color
         } else if ratio > 0.5 {
@@ -170,18 +173,6 @@ impl<'a> HierarchicalBarChart<'a> {
                 // 简化小时标签：0时 -> 0
                 label.replace("时", "")
             }
-        }
-    }
-
-    /// 格式化时长
-    fn format_duration(&self, seconds: i64) -> String {
-        let hours = seconds / 3600;
-        let minutes = (seconds % 3600) / 60;
-        
-        if hours > 0 {
-            format!("{}小时{}分钟", hours, minutes)
-        } else {
-            format!("{}分钟", minutes)
         }
     }
 }

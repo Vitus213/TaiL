@@ -1,10 +1,11 @@
 //! TaiL GUI - 应用卡片组件
 
-use std::sync::Arc;
 use egui::{Color32, Pos2, Rect, Response, Rounding, Sense, Stroke, TextureHandle, Ui, Vec2};
+use std::sync::Arc;
 
 use crate::icons::IconCache;
 use crate::theme::TaiLTheme;
+use crate::utils::duration;
 
 /// 应用卡片组件
 pub struct AppCard<'a> {
@@ -58,7 +59,7 @@ impl<'a> AppCard<'a> {
         // 从 IconCache 获取图标纹理和后备标签
         let icon_texture = icon_cache.get_texture(ctx, app_name);
         let fallback_label = icon_cache.get_emoji(app_name);
-        
+
         Self {
             app_name,
             display_name,
@@ -83,21 +84,6 @@ impl<'a> AppCard<'a> {
         self
     }
 
-    /// 格式化时长
-    fn format_duration(seconds: i64) -> String {
-        let hours = seconds / 3600;
-        let minutes = (seconds % 3600) / 60;
-        let secs = seconds % 60;
-
-        if hours > 0 {
-            format!("{}h {}m", hours, minutes)
-        } else if minutes > 0 {
-            format!("{}m {}s", minutes, secs)
-        } else {
-            format!("{}s", secs)
-        }
-    }
-
     /// 获取进度条颜色（根据使用时长）
     fn get_progress_color(&self) -> Color32 {
         if self.percentage > 80.0 {
@@ -112,13 +98,17 @@ impl<'a> AppCard<'a> {
     /// 显示卡片（替代 Widget trait）
     pub fn show(self, ui: &mut Ui) -> Response {
         // 根据是否有窗口标题调整卡片高度
-        let card_height = if self.window_title.is_some() { 90.0 } else { 70.0 };
+        let card_height = if self.window_title.is_some() {
+            90.0
+        } else {
+            70.0
+        };
         let desired_size = Vec2::new(ui.available_width(), card_height);
         let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click());
 
         if ui.is_rect_visible(rect) {
             let painter = ui.painter();
-            
+
             // 卡片背景
             let bg_color = if response.hovered() {
                 self.theme.card_hover_background
@@ -135,12 +125,8 @@ impl<'a> AppCard<'a> {
                 Rounding::same(self.theme.card_rounding),
                 Color32::from_black_alpha(30),
             );
-            
-            painter.rect_filled(
-                rect,
-                Rounding::same(self.theme.card_rounding),
-                bg_color,
-            );
+
+            painter.rect_filled(rect, Rounding::same(self.theme.card_rounding), bg_color);
 
             // 卡片边框
             if self.selected {
@@ -156,29 +142,21 @@ impl<'a> AppCard<'a> {
 
             // 左侧：排名和图标
             let icon_size = 40.0;
-            let icon_rect = Rect::from_min_size(
-                content_rect.min,
-                Vec2::new(icon_size, icon_size),
-            );
-            
+            let icon_rect = Rect::from_min_size(content_rect.min, Vec2::new(icon_size, icon_size));
+
             // 绘制图标背景
             painter.rect_filled(
                 icon_rect,
                 Rounding::same(8.0),
                 self.theme.primary_color.linear_multiply(0.2),
             );
-            
+
             // 绘制图标（优先使用纹理，否则使用文本后备）
             if let Some(texture) = &self.icon_texture {
                 // 使用真实图标纹理
                 let uv = Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0));
                 let icon_inner_rect = icon_rect.shrink(4.0); // 留一点边距
-                painter.image(
-                    texture.id(),
-                    icon_inner_rect,
-                    uv,
-                    Color32::WHITE,
-                );
+                painter.image(texture.id(), icon_inner_rect, uv, Color32::WHITE);
             } else {
                 // 使用文本后备
                 painter.text(
@@ -242,34 +220,28 @@ impl<'a> AppCard<'a> {
                 Pos2::new(text_left, progress_y),
                 Vec2::new(text_width.max(100.0), progress_height),
             );
-            
+
             // 进度条背景
             painter.rect_filled(
                 progress_rect,
                 Rounding::same(3.0),
                 self.theme.progress_background,
             );
-            
+
             // 进度条填充
             let fill_width = progress_rect.width() * (self.percentage / 100.0).min(1.0);
-            let fill_rect = Rect::from_min_size(
-                progress_rect.min,
-                Vec2::new(fill_width, progress_height),
-            );
-            painter.rect_filled(
-                fill_rect,
-                Rounding::same(3.0),
-                self.get_progress_color(),
-            );
+            let fill_rect =
+                Rect::from_min_size(progress_rect.min, Vec2::new(fill_width, progress_height));
+            painter.rect_filled(fill_rect, Rounding::same(3.0), self.get_progress_color());
 
             // 右侧：时长和百分比
             let right_x = content_rect.max.x;
-            
+
             // 时长
             painter.text(
                 Pos2::new(right_x, content_rect.min.y + 6.0),
                 egui::Align2::RIGHT_TOP,
-                Self::format_duration(self.duration_secs),
+                duration::format_duration(self.duration_secs),
                 egui::FontId::proportional(self.theme.body_size),
                 self.theme.text_color,
             );
@@ -312,35 +284,20 @@ impl<'a> AppListItem<'a> {
         }
     }
 
-    fn format_duration(seconds: i64) -> String {
-        let hours = seconds / 3600;
-        let minutes = (seconds % 3600) / 60;
-
-        if hours > 0 {
-            format!("{}h {}m", hours, minutes)
-        } else {
-            format!("{}m", minutes)
-        }
-    }
-
     pub fn show(self, ui: &mut Ui) -> Response {
         let desired_size = Vec2::new(ui.available_width(), 32.0);
         let (rect, response) = ui.allocate_exact_size(desired_size, Sense::hover());
 
         if ui.is_rect_visible(rect) {
             let painter = ui.painter();
-            
+
             // 悬停背景
             if response.hovered() {
-                painter.rect_filled(
-                    rect,
-                    Rounding::same(4.0),
-                    self.theme.card_hover_background,
-                );
+                painter.rect_filled(rect, Rounding::same(4.0), self.theme.card_hover_background);
             }
 
             let padding = 8.0;
-            
+
             // 应用名称
             painter.text(
                 Pos2::new(rect.min.x + padding, rect.center().y),
@@ -354,7 +311,7 @@ impl<'a> AppListItem<'a> {
             painter.text(
                 Pos2::new(rect.max.x - padding, rect.center().y),
                 egui::Align2::RIGHT_CENTER,
-                Self::format_duration(self.duration_secs),
+                duration::format_duration(self.duration_secs),
                 egui::FontId::proportional(self.theme.small_size),
                 self.theme.secondary_text_color,
             );

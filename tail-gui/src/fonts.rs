@@ -39,25 +39,24 @@ const NOTO_SANS_SC: &[u8] = include_bytes!("../assets/fonts/NotoSansSC-Regular.t
 pub fn setup_fonts(ctx: &Context) {
     // 创建新的字体定义
     let mut fonts = FontDefinitions::default();
-    
+
     // 加载 LXGW WenKai 字体（用于中文显示）
-    fonts.font_data.insert(
-        "lxgw".to_owned(),
-        FontData::from_static(LXGW),
-    );
-    
+    fonts
+        .font_data
+        .insert("lxgw".to_owned(), FontData::from_static(LXGW));
+
     // 加载 JetBrains Mono 字体（用于英文和等宽显示）
     fonts.font_data.insert(
         "jetbrains_mono".to_owned(),
         FontData::from_static(JETBRAINS_MONO),
     );
-    
+
     // 加载 Noto Sans SC 字体（用于中文后备，包含更多字符）
     fonts.font_data.insert(
         "noto_sans_sc".to_owned(),
         FontData::from_static(NOTO_SANS_SC),
     );
-    
+
     // 设置字体家族优先级
     // Proportional: 用于普通文本
     // 顺序：LXGW (中文) → JetBrains Mono (英文) → Noto Sans SC (后备)
@@ -67,7 +66,7 @@ pub fn setup_fonts(ctx: &Context) {
         proportional.insert(0, "jetbrains_mono".to_owned());
         proportional.insert(0, "lxgw".to_owned());
     }
-    
+
     // Monospace: 用于等宽文本（数字、代码等）
     if let Some(monospace) = fonts.families.get_mut(&FontFamily::Monospace) {
         // 在最前面插入字体
@@ -75,8 +74,10 @@ pub fn setup_fonts(ctx: &Context) {
         monospace.insert(0, "lxgw".to_owned());
         monospace.insert(0, "jetbrains_mono".to_owned());
     }
-    
-    tracing::info!("字体加载完成: LXGW WenKai (中文) + JetBrains Mono (英文) + Noto Sans SC (后备)");
-    
+
+    tracing::info!(
+        "字体加载完成: LXGW WenKai (中文) + JetBrains Mono (英文) + Noto Sans SC (后备)"
+    );
+
     ctx.set_fonts(fonts);
 }

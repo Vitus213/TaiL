@@ -8,8 +8,10 @@ pub mod components;
 pub mod fonts;
 pub mod icons;
 pub mod theme;
+pub mod utils;
 pub mod views;
 
 pub use app::*;
 pub use fonts::setup_fonts;
 pub use theme::{TaiLTheme, ThemeType};
+pub use utils::{duration, filter, time_range};

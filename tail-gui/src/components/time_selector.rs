@@ -28,10 +28,10 @@ pub struct TimeRangeSelectorResponse {
 impl<'a> TimeRangeSelector<'a> {
     pub fn show(self, ui: &mut Ui) -> TimeRangeSelectorResponse {
         let mut selected = None;
-        
+
         let response = ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 4.0;
-            
+
             let options = [
                 (TimeRange::Today, "今天"),
                 (TimeRange::Yesterday, "昨天"),
@@ -41,8 +41,11 @@ impl<'a> TimeRangeSelector<'a> {
 
             for (range, label) in options {
                 let is_selected = self.is_same_range(&range);
-                
-                if ui.add(TimeRangeButton::new(label, is_selected, self.theme)).clicked() {
+
+                if ui
+                    .add(TimeRangeButton::new(label, is_selected, self.theme))
+                    .clicked()
+                {
                     selected = Some(range);
                 }
             }
@@ -86,7 +89,7 @@ impl<'a> Widget for TimeRangeButton<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         let padding = Vec2::new(16.0, 8.0);
         let text_size = self.theme.small_size;
-        
+
         // 计算文本大小
         let galley = ui.painter().layout_no_wrap(
             self.label.to_string(),
@@ -94,13 +97,13 @@ impl<'a> Widget for TimeRangeButton<'a> {
             Color32::WHITE,
         );
         let text_size_vec = galley.rect.size();
-        
+
         let desired_size = text_size_vec + padding * 2.0;
         let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click());
 
         if ui.is_rect_visible(rect) {
             let painter = ui.painter();
-            
+
             // 背景颜色
             let bg_color = if self.selected {
                 self.theme.primary_color
@@ -118,11 +121,7 @@ impl<'a> Widget for TimeRangeButton<'a> {
             };
 
             // 绘制背景
-            painter.rect_filled(
-                rect,
-                Rounding::same(6.0),
-                bg_color,
-            );
+            painter.rect_filled(rect, Rounding::same(6.0), bg_color);
 
             // 绘制文字
             painter.text(
@@ -166,16 +165,25 @@ pub struct TabSelectorResponse {
 impl<'a> TabSelector<'a> {
     pub fn show(self, ui: &mut Ui) -> TabSelectorResponse {
         let mut new_selected = None;
-        
+
         let response = ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 0.0;
-            
+
             for (idx, tab) in self.tabs.iter().enumerate() {
                 let is_selected = idx == self.selected;
                 let is_first = idx == 0;
                 let is_last = idx == self.tabs.len() - 1;
-                
-                if ui.add(TabButton::new(tab, is_selected, is_first, is_last, self.theme)).clicked() {
+
+                if ui
+                    .add(TabButton::new(
+                        tab,
+                        is_selected,
+                        is_first,
+                        is_last,
+                        self.theme,
+                    ))
+                    .clicked()
+                {
                     new_selected = Some(idx);
                 }
             }
@@ -198,7 +206,13 @@ struct TabButton<'a> {
 }
 
 impl<'a> TabButton<'a> {
-    fn new(label: &'a str, selected: bool, is_first: bool, is_last: bool, theme: &'a TaiLTheme) -> Self {
+    fn new(
+        label: &'a str,
+        selected: bool,
+        is_first: bool,
+        is_last: bool,
+        theme: &'a TaiLTheme,
+    ) -> Self {
         Self {
             label,
             selected,
@@ -213,20 +227,20 @@ impl<'a> Widget for TabButton<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         let padding = Vec2::new(20.0, 10.0);
         let text_size = self.theme.body_size;
-        
+
         let galley = ui.painter().layout_no_wrap(
             self.label.to_string(),
             egui::FontId::proportional(text_size),
             Color32::WHITE,
         );
         let text_size_vec = galley.rect.size();
-        
+
         let desired_size = text_size_vec + padding * 2.0;
         let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click());
 
         if ui.is_rect_visible(rect) {
             let painter = ui.painter();
-            
+
             // 背景颜色
             let bg_color = if self.selected {
                 self.theme.primary_color
@@ -273,11 +287,7 @@ impl<'a> Widget for TabButton<'a> {
                     Pos2::new(rect.min.x, rect.max.y - 3.0),
                     Vec2::new(rect.width(), 3.0),
                 );
-                painter.rect_filled(
-                    indicator_rect,
-                    Rounding::ZERO,
-                    self.theme.accent_color,
-                );
+                painter.rect_filled(indicator_rect, Rounding::ZERO, self.theme.accent_color);
             }
 
             // 绘制文字

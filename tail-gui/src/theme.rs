@@ -51,15 +51,15 @@ impl TaiLTheme {
     pub fn dark() -> Self {
         Self {
             // 主要颜色
-            primary_color: Color32::from_rgb(74, 144, 226),    // #4A90E2
-            accent_color: Color32::from_rgb(102, 187, 106),    // 绿色
-            success_color: Color32::from_rgb(102, 187, 106),   // 绿色
-            warning_color: Color32::from_rgb(255, 167, 38),    // 橙色
-            danger_color: Color32::from_rgb(239, 83, 80),      // 红色
+            primary_color: Color32::from_rgb(74, 144, 226), // #4A90E2
+            accent_color: Color32::from_rgb(102, 187, 106), // 绿色
+            success_color: Color32::from_rgb(102, 187, 106), // 绿色
+            warning_color: Color32::from_rgb(255, 167, 38), // 橙色
+            danger_color: Color32::from_rgb(239, 83, 80),   // 红色
 
             // 背景颜色
-            background_color: Color32::from_rgb(30, 30, 30),   // #1E1E1E
-            card_background: Color32::from_rgb(45, 45, 45),    // #2D2D2D
+            background_color: Color32::from_rgb(30, 30, 30), // #1E1E1E
+            card_background: Color32::from_rgb(45, 45, 45),  // #2D2D2D
             card_hover_background: Color32::from_rgb(55, 55, 55),
             card_selected_background: Color32::from_rgb(60, 60, 70),
 
@@ -127,20 +127,20 @@ impl TaiLTheme {
     pub fn catppuccin_mocha() -> Self {
         Self {
             // 主要颜色
-            primary_color: Color32::from_rgb(137, 180, 250),   // Blue
-            accent_color: Color32::from_rgb(166, 227, 161),    // Green
-            success_color: Color32::from_rgb(166, 227, 161),   // Green
-            warning_color: Color32::from_rgb(249, 226, 175),   // Yellow
-            danger_color: Color32::from_rgb(243, 139, 168),    // Red
+            primary_color: Color32::from_rgb(137, 180, 250), // Blue
+            accent_color: Color32::from_rgb(166, 227, 161),  // Green
+            success_color: Color32::from_rgb(166, 227, 161), // Green
+            warning_color: Color32::from_rgb(249, 226, 175), // Yellow
+            danger_color: Color32::from_rgb(243, 139, 168),  // Red
 
             // 背景颜色
-            background_color: Color32::from_rgb(30, 30, 46),   // Base
-            card_background: Color32::from_rgb(49, 50, 68),    // Surface0
+            background_color: Color32::from_rgb(30, 30, 46), // Base
+            card_background: Color32::from_rgb(49, 50, 68),  // Surface0
             card_hover_background: Color32::from_rgb(69, 71, 90), // Surface1
             card_selected_background: Color32::from_rgb(88, 91, 112), // Surface2
 
             // 文字颜色
-            text_color: Color32::from_rgb(205, 214, 244),      // Text
+            text_color: Color32::from_rgb(205, 214, 244), // Text
             secondary_text_color: Color32::from_rgb(166, 173, 200), // Subtext0
 
             // 进度条颜色
@@ -165,20 +165,20 @@ impl TaiLTheme {
     pub fn nord() -> Self {
         Self {
             // 主要颜色
-            primary_color: Color32::from_rgb(136, 192, 208),   // Nord8
-            accent_color: Color32::from_rgb(163, 190, 140),    // Nord14
-            success_color: Color32::from_rgb(163, 190, 140),   // Nord14
-            warning_color: Color32::from_rgb(235, 203, 139),   // Nord13
-            danger_color: Color32::from_rgb(191, 97, 106),     // Nord11
+            primary_color: Color32::from_rgb(136, 192, 208), // Nord8
+            accent_color: Color32::from_rgb(163, 190, 140),  // Nord14
+            success_color: Color32::from_rgb(163, 190, 140), // Nord14
+            warning_color: Color32::from_rgb(235, 203, 139), // Nord13
+            danger_color: Color32::from_rgb(191, 97, 106),   // Nord11
 
             // 背景颜色
-            background_color: Color32::from_rgb(46, 52, 64),   // Nord0
-            card_background: Color32::from_rgb(59, 66, 82),    // Nord1
+            background_color: Color32::from_rgb(46, 52, 64), // Nord0
+            card_background: Color32::from_rgb(59, 66, 82),  // Nord1
             card_hover_background: Color32::from_rgb(67, 76, 94), // Nord2
             card_selected_background: Color32::from_rgb(76, 86, 106), // Nord3
 
             // 文字颜色
-            text_color: Color32::from_rgb(236, 239, 244),      // Nord6
+            text_color: Color32::from_rgb(236, 239, 244), // Nord6
             secondary_text_color: Color32::from_rgb(216, 222, 233), // Nord4
 
             // 进度条颜色
@@ -199,42 +199,123 @@ impl TaiLTheme {
         }
     }
 
+    /// Tokyo Night 主题
+    pub fn tokyo_night() -> Self {
+        Self {
+            // 主要颜色
+            primary_color: Color32::from_rgb(122, 162, 255), // Blue
+            accent_color: Color32::from_rgb(187, 154, 247),  // Purple
+            success_color: Color32::from_rgb(86, 182, 194),  // Cyan
+            warning_color: Color32::from_rgb(255, 179, 109), // Orange
+            danger_color: Color32::from_rgb(247, 118, 142),  // Red
+
+            // 背景颜色
+            background_color: Color32::from_rgb(26, 27, 38), // Base
+            card_background: Color32::from_rgb(34, 35, 48),  // Surface1
+            card_hover_background: Color32::from_rgb(44, 45, 60), // Surface2
+            card_selected_background: Color32::from_rgb(54, 55, 72), // Surface0
+
+            // 文字颜色
+            text_color: Color32::from_rgb(187, 187, 187), // White
+            secondary_text_color: Color32::from_rgb(113, 119, 138), // Grey
+
+            // 进度条颜色
+            progress_background: Color32::from_rgb(44, 45, 60),
+
+            // 分隔线颜色
+            divider_color: Color32::from_rgb(54, 55, 72),
+
+            // 字体大小
+            heading_size: 24.0,
+            body_size: 16.0,
+            small_size: 13.0,
+
+            // 间距
+            spacing: 16.0,
+            card_padding: 16.0,
+            card_rounding: 12.0,
+        }
+    }
+
+    /// Dracula 主题
+    pub fn dracula() -> Self {
+        Self {
+            // 主要颜色
+            primary_color: Color32::from_rgb(80, 250, 123), // Green
+            accent_color: Color32::from_rgb(189, 147, 249), // Purple
+            success_color: Color32::from_rgb(80, 250, 123), // Green
+            warning_color: Color32::from_rgb(255, 184, 108), // Yellow
+            danger_color: Color32::from_rgb(255, 85, 85),   // Red
+
+            // 背景颜色
+            background_color: Color32::from_rgb(40, 42, 54), // Background
+            card_background: Color32::from_rgb(68, 71, 90),  // Current Line
+            card_hover_background: Color32::from_rgb(88, 91, 112),
+            card_selected_background: Color32::from_rgb(98, 114, 164),
+
+            // 文字颜色
+            text_color: Color32::from_rgb(248, 248, 242), // Foreground
+            secondary_text_color: Color32::from_rgb(98, 114, 164), // Comment
+
+            // 进度条颜色
+            progress_background: Color32::from_rgb(68, 71, 90),
+
+            // 分隔线颜色
+            divider_color: Color32::from_rgb(98, 114, 164),
+
+            // 字体大小
+            heading_size: 24.0,
+            body_size: 16.0,
+            small_size: 13.0,
+
+            // 间距
+            spacing: 16.0,
+            card_padding: 16.0,
+            card_rounding: 12.0,
+        }
+    }
+
     /// 应用主题到 egui 上下文
     pub fn apply(&self, ctx: &egui::Context) {
         let mut visuals = egui::Visuals::dark();
-        
+
         // 设置窗口背景
         visuals.panel_fill = self.background_color;
         visuals.window_fill = self.card_background;
-        
+
         // 设置控件颜色
         visuals.widgets.noninteractive.bg_fill = self.card_background;
         visuals.widgets.inactive.bg_fill = self.card_background;
         visuals.widgets.hovered.bg_fill = self.card_hover_background;
         visuals.widgets.active.bg_fill = self.primary_color;
-        
+
         // 设置文字颜色
         visuals.widgets.noninteractive.fg_stroke.color = self.text_color;
         visuals.widgets.inactive.fg_stroke.color = self.text_color;
         visuals.widgets.hovered.fg_stroke.color = self.text_color;
         visuals.widgets.active.fg_stroke.color = Color32::WHITE;
-        
+
         // 设置选择颜色
         visuals.selection.bg_fill = self.primary_color.linear_multiply(0.3);
         visuals.selection.stroke.color = self.primary_color;
-        
+
         // 设置超链接颜色
         visuals.hyperlink_color = self.primary_color;
-        
+
         // 设置圆角
         visuals.window_rounding = egui::Rounding::same(self.card_rounding);
         visuals.widgets.noninteractive.rounding = egui::Rounding::same(8.0);
         visuals.widgets.inactive.rounding = egui::Rounding::same(8.0);
         visuals.widgets.hovered.rounding = egui::Rounding::same(8.0);
         visuals.widgets.active.rounding = egui::Rounding::same(8.0);
-        
+
+        // 设置滚动条样式
+        visuals.widgets.noninteractive.bg_fill = self.card_background;
+        visuals.widgets.inactive.fg_stroke.color = self.secondary_text_color;
+        visuals.widgets.hovered.fg_stroke.color = self.text_color;
+
         ctx.set_visuals(visuals);
-        
+
         // 设置字体大小
         let mut style = (*ctx.style()).clone();
         style.text_styles.insert(
@@ -253,12 +334,15 @@ impl TaiLTheme {
             egui::TextStyle::Button,
             egui::FontId::proportional(self.body_size),
         );
-        
+
         // 设置间距
         style.spacing.item_spacing = egui::vec2(self.spacing / 2.0, self.spacing / 2.0);
         style.spacing.window_margin = egui::Margin::same(self.spacing);
         style.spacing.button_padding = egui::vec2(12.0, 6.0);
-        
+
+        // 设置滚动条
+        style.spacing.scroll.bar_width = 8.0;
+
         ctx.set_style(style);
     }
 }
@@ -271,6 +355,8 @@ pub enum ThemeType {
     Dark,
     CatppuccinMocha,
     Nord,
+    TokyoNight,
+    Dracula,
     Auto,
 }
 
@@ -282,6 +368,8 @@ impl ThemeType {
             ThemeType::Dark => "深色",
             ThemeType::CatppuccinMocha => "Catppuccin Mocha",
             ThemeType::Nord => "Nord",
+            ThemeType::TokyoNight => "Tokyo Night",
+            ThemeType::Dracula => "Dracula",
             ThemeType::Auto => "跟随系统",
         }
     }
@@ -293,6 +381,8 @@ impl ThemeType {
             ThemeType::Dark,
             ThemeType::CatppuccinMocha,
             ThemeType::Nord,
+            ThemeType::TokyoNight,
+            ThemeType::Dracula,
             ThemeType::Auto,
         ]
     }
@@ -304,6 +394,8 @@ impl ThemeType {
             ThemeType::Dark => TaiLTheme::dark(),
             ThemeType::CatppuccinMocha => TaiLTheme::catppuccin_mocha(),
             ThemeType::Nord => TaiLTheme::nord(),
+            ThemeType::TokyoNight => TaiLTheme::tokyo_night(),
+            ThemeType::Dracula => TaiLTheme::dracula(),
             ThemeType::Auto => {
                 // 检测系统主题
                 #[cfg(target_os = "linux")]
@@ -346,7 +438,7 @@ mod color32_serde {
     {
         let s = String::deserialize(deserializer)?;
         let s = s.trim_start_matches('#');
-        
+
         if s.len() == 8 {
             let r = u8::from_str_radix(&s[0..2], 16).map_err(serde::de::Error::custom)?;
             let g = u8::from_str_radix(&s[2..4], 16).map_err(serde::de::Error::custom)?;

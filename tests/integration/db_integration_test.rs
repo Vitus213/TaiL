@@ -1,7 +1,7 @@
 //! 数据库集成测试
 
-use chrono::{Utc, Duration};
-use tail_core::{Repository, DbConfig, WindowEvent, AfkEvent, DailyGoal};
+use chrono::{Duration, Utc};
+use tail_core::{AfkEvent, DailyGoal, DbConfig, Repository, WindowEvent};
 use tempfile::TempDir;
 
 /// 测试上下文
@@ -14,7 +14,7 @@ impl TestContext {
     fn new() -> Self {
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join("test.db");
-        
+
         let config = DbConfig {
             path: db_path.to_str().unwrap().to_string(),
         };
@@ -60,7 +60,7 @@ fn create_daily_goal(app: &str, max_minutes: i32) -> DailyGoal {
 #[test]
 fn test_window_event_lifecycle() {
     let ctx = TestContext::new();
-    
+
     // 插入事件
     let event = create_window_event("firefox", 120);
     let id = ctx.repo.insert_window_event(&event).unwrap();
@@ -70,7 +70,7 @@ fn test_window_event_lifecycle() {
     let start = Utc::now() - Duration::hours(1);
     let end = Utc::now() + Duration::hours(1);
     let events = ctx.repo.get_window_events(start, end).unwrap();
-    
+
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].app_name, "firefox");
     assert_eq!(events[0].duration_secs, 120);
@@ -79,11 +79,17 @@ fn test_window_event_lifecycle() {
 #[test]
 fn test_app_usage_aggregation() {
     let ctx = TestContext::new();
-    
+
     // 插入多个事件
-    ctx.repo.insert_window_event(&create_window_event("firefox", 120)).unwrap();
-    ctx.repo.insert_window_event(&create_window_event("firefox", 180)).unwrap();
-    ctx.repo.insert_window_event(&create_window_event("kitty", 60)).unwrap();
+    ctx.repo
+        .insert_window_event(&create_window_event("firefox", 120))
+        .unwrap();
+    ctx.repo
+        .insert_window_event(&create_window_event("firefox", 180))
+        .unwrap();
+    ctx.repo
+        .insert_window_event(&create_window_event("kitty", 60))
+        .unwrap();
 
     // 查询应用使用统计
     let start = Utc::now() - Duration::hours(1);
@@ -100,7 +106,7 @@ fn test_app_usage_aggregation() {
 #[test]
 fn test_afk_event_tracking() {
     let ctx = TestContext::new();
-    
+
     // 插入 AFK 事件
     let afk_event = create_afk_event(300);
     let id = ctx.repo.insert_afk_event(&afk_event).unwrap();
@@ -110,7 +116,7 @@ fn test_afk_event_tracking() {
     let start = Utc::now() - Duration::hours(1);
     let end = Utc::now() + Duration::hours(1);
     let events = ctx.repo.get_afk_events(start, end).unwrap();
-    
+
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].duration_secs, 300);
 }
@@ -118,7 +124,7 @@ fn test_afk_event_tracking() {
 #[test]
 fn test_daily_goal_management() {
     let ctx = TestContext::new();
-    
+
     // 创建目标
     let goal = create_daily_goal("firefox", 120);
     ctx.repo.upsert_daily_goal(&goal).unwrap();
@@ -178,10 +184,10 @@ fn test_concurrent_database_access() {
 #[test]
 fn test_time_range_filtering() {
     let ctx = TestContext::new();
-    
+
     // 插入不同时间的事件
     let now = Utc::now();
-    
+
     let mut event1 = create_window_event("firefox", 60);
     event1.timestamp = now - Duration::hours(2);
     ctx.repo.insert_window_event(&event1).unwrap();
@@ -198,7 +204,7 @@ fn test_time_range_filtering() {
     let start = now - Duration::hours(1);
     let end = now;
     let events = ctx.repo.get_window_events(start, end).unwrap();
-    
+
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].app_name, "kitty");
 }

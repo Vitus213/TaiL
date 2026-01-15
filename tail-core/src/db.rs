@@ -1,9 +1,9 @@
 //! TaiL Core - 数据库访问层
 
-use chrono::{DateTime, Utc, Local, Datelike};
-use rusqlite::params;
+use chrono::{DateTime, Datelike, Local, Utc};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::params;
 use std::path::Path;
 
 use crate::models::*;
@@ -54,9 +54,7 @@ impl Repository {
     /// 创建新的数据库连接
     pub fn new(config: &DbConfig) -> Result<Self, DbError> {
         let manager = SqliteConnectionManager::file(&config.path);
-        let pool = Pool::builder()
-            .max_size(10)
-            .build(manager)?;
+        let pool = Pool::builder().max_size(10).build(manager)?;
 
         let repo = Self { pool };
         repo.init_schema()?;
@@ -146,6 +144,17 @@ impl Repository {
             [],
         )?;
 
+        // 应用别名表
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS app_aliases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                app_name TEXT NOT NULL UNIQUE,
+                alias TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
+
         // 索引
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_app_categories_app ON app_categories(app_name)",
@@ -194,18 +203,19 @@ impl Repository {
              ORDER BY timestamp ASC",
         )?;
 
-        let events = stmt.query_map(params![start, end], |row| {
-            Ok(WindowEvent {
-                id: Some(row.get(0)?),
-                timestamp: row.get(1)?,
-                app_name: row.get(2)?,
-                window_title: row.get(3)?,
-                workspace: row.get(4)?,
-                duration_secs: row.get(5)?,
-                is_afk: row.get(6)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let events = stmt
+            .query_map(params![start, end], |row| {
+                Ok(WindowEvent {
+                    id: Some(row.get(0)?),
+                    timestamp: row.get(1)?,
+                    app_name: row.get(2)?,
+                    window_title: row.get(3)?,
+                    workspace: row.get(4)?,
+                    duration_secs: row.get(5)?,
+                    is_afk: row.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(events)
     }
@@ -228,33 +238,42 @@ impl Repository {
              ORDER BY timestamp ASC",
         )?;
 
-        let all_events: Vec<WindowEvent> = events_stmt.query_map(params![start, end], |row| {
-            Ok(WindowEvent {
-                id: Some(row.get(0)?),
-                timestamp: row.get(1)?,
-                app_name: row.get(2)?,
-                window_title: row.get(3)?,
-                workspace: row.get(4)?,
-                duration_secs: row.get(5)?,
-                is_afk: row.get(6)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let all_events: Vec<WindowEvent> = events_stmt
+            .query_map(params![start, end], |row| {
+                Ok(WindowEvent {
+                    id: Some(row.get(0)?),
+                    timestamp: row.get(1)?,
+                    app_name: row.get(2)?,
+                    window_title: row.get(3)?,
+                    workspace: row.get(4)?,
+                    duration_secs: row.get(5)?,
+                    is_afk: row.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         tracing::debug!("get_app_usage 查询到 {} 条事件", all_events.len());
 
         // 按应用名称分组并计算总时长
-        let mut app_map: std::collections::HashMap<String, (i64, Vec<WindowEvent>)> = std::collections::HashMap::new();
-        
+        let mut app_map: std::collections::HashMap<String, (i64, Vec<WindowEvent>)> =
+            std::collections::HashMap::new();
+
         for event in all_events {
-            let entry = app_map.entry(event.app_name.clone()).or_insert((0, Vec::new()));
+            let entry = app_map
+                .entry(event.app_name.clone())
+                .or_insert((0, Vec::new()));
             entry.0 += event.duration_secs;
             entry.1.push(event);
         }
 
         // 调试日志：输出每个应用的统计
         for (app_name, (total, events)) in &app_map {
-            tracing::debug!("应用 '{}': 总时长 {} 秒, 事件数 {}", app_name, total, events.len());
+            tracing::debug!(
+                "应用 '{}': 总时长 {} 秒, 事件数 {}",
+                app_name,
+                total,
+                events.len()
+            );
         }
 
         // 转换为 AppUsage 并按总时长排序
@@ -294,7 +313,12 @@ impl Repository {
     }
 
     /// 更新 AFK 事件结束时间
-    pub fn update_afk_event_end(&self, id: i64, end_time: DateTime<Utc>, duration_secs: i64) -> Result<(), DbError> {
+    pub fn update_afk_event_end(
+        &self,
+        id: i64,
+        end_time: DateTime<Utc>,
+        duration_secs: i64,
+    ) -> Result<(), DbError> {
         let conn = self.pool.get()?;
         conn.execute(
             "UPDATE afk_events SET end_time = ?1, duration_secs = ?2 WHERE id = ?3",
@@ -318,15 +342,16 @@ impl Repository {
              ORDER BY start_time ASC",
         )?;
 
-        let events = stmt.query_map(params![start, end], |row| {
-            Ok(AfkEvent {
-                id: Some(row.get(0)?),
-                start_time: row.get(1)?,
-                end_time: row.get(2)?,
-                duration_secs: row.get(3)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let events = stmt
+            .query_map(params![start, end], |row| {
+                Ok(AfkEvent {
+                    id: Some(row.get(0)?),
+                    start_time: row.get(1)?,
+                    end_time: row.get(2)?,
+                    duration_secs: row.get(3)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(events)
     }
@@ -334,7 +359,7 @@ impl Repository {
     /// 插入或更新每日目标
     pub fn upsert_daily_goal(&self, goal: &DailyGoal) -> Result<i64, DbError> {
         let conn = self.pool.get()?;
-        
+
         conn.execute(
             "INSERT INTO daily_goals (app_name, max_minutes, notify_enabled)
              VALUES (?1, ?2, ?3)
@@ -357,15 +382,16 @@ impl Repository {
              ORDER BY app_name ASC",
         )?;
 
-        let goals = stmt.query_map([], |row| {
-            Ok(DailyGoal {
-                id: Some(row.get(0)?),
-                app_name: row.get(1)?,
-                max_minutes: row.get(2)?,
-                notify_enabled: row.get(3)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let goals = stmt
+            .query_map([], |row| {
+                Ok(DailyGoal {
+                    id: Some(row.get(0)?),
+                    app_name: row.get(1)?,
+                    max_minutes: row.get(2)?,
+                    notify_enabled: row.get(3)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(goals)
     }
@@ -383,10 +409,11 @@ impl Repository {
     /// 获取今日某应用的总使用时长（秒）
     pub fn get_today_app_usage(&self, app_name: &str) -> Result<i64, DbError> {
         let conn = self.pool.get()?;
-        
+
         // 获取今天的开始时间（使用本地时间计算"今天"，然后转换为 UTC）
         let local_now = Local::now();
-        let today_start = local_now.date_naive()
+        let today_start = local_now
+            .date_naive()
             .and_hms_opt(0, 0, 0)
             .unwrap()
             .and_local_timezone(Local)
@@ -436,19 +463,19 @@ impl Repository {
     /// 获取所有分类
     pub fn get_categories(&self) -> Result<Vec<Category>, DbError> {
         let conn = self.pool.get()?;
-        let mut stmt = conn.prepare(
-            "SELECT id, name, icon, color FROM categories ORDER BY name ASC",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT id, name, icon, color FROM categories ORDER BY name ASC")?;
 
-        let categories = stmt.query_map([], |row| {
-            Ok(Category {
-                id: Some(row.get(0)?),
-                name: row.get(1)?,
-                icon: row.get(2)?,
-                color: row.get(3)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let categories = stmt
+            .query_map([], |row| {
+                Ok(Category {
+                    id: Some(row.get(0)?),
+                    name: row.get(1)?,
+                    icon: row.get(2)?,
+                    color: row.get(3)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(categories)
     }
@@ -456,9 +483,8 @@ impl Repository {
     /// 根据 ID 获取分类
     pub fn get_category_by_id(&self, id: i64) -> Result<Option<Category>, DbError> {
         let conn = self.pool.get()?;
-        let mut stmt = conn.prepare(
-            "SELECT id, name, icon, color FROM categories WHERE id = ?1",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT id, name, icon, color FROM categories WHERE id = ?1")?;
 
         let result = stmt.query_row(params![id], |row| {
             Ok(Category {
@@ -487,7 +513,11 @@ impl Repository {
     }
 
     /// 从分类中移除应用
-    pub fn remove_app_from_category(&self, app_name: &str, category_id: i64) -> Result<(), DbError> {
+    pub fn remove_app_from_category(
+        &self,
+        app_name: &str,
+        category_id: i64,
+    ) -> Result<(), DbError> {
         let conn = self.pool.get()?;
         conn.execute(
             "DELETE FROM app_categories WHERE app_name = ?1 AND category_id = ?2",
@@ -507,15 +537,16 @@ impl Repository {
              ORDER BY c.name ASC",
         )?;
 
-        let categories = stmt.query_map(params![app_name], |row| {
-            Ok(Category {
-                id: Some(row.get(0)?),
-                name: row.get(1)?,
-                icon: row.get(2)?,
-                color: row.get(3)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let categories = stmt
+            .query_map(params![app_name], |row| {
+                Ok(Category {
+                    id: Some(row.get(0)?),
+                    name: row.get(1)?,
+                    icon: row.get(2)?,
+                    color: row.get(3)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(categories)
     }
@@ -527,7 +558,8 @@ impl Repository {
             "SELECT app_name FROM app_categories WHERE category_id = ?1 ORDER BY app_name ASC",
         )?;
 
-        let apps = stmt.query_map(params![category_id], |row| row.get(0))?
+        let apps = stmt
+            .query_map(params![category_id], |row| row.get(0))?
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(apps)
@@ -543,15 +575,15 @@ impl Repository {
 
         // 获取所有分类
         let categories = self.get_categories()?;
-        
+
         let mut result = Vec::new();
 
         for category in categories {
             let category_id = category.id.unwrap();
-            
+
             // 获取该分类下的所有应用
             let apps = self.get_category_apps(category_id)?;
-            
+
             if apps.is_empty() {
                 result.push(CategoryUsage {
                     category,
@@ -563,7 +595,9 @@ impl Repository {
             }
 
             // 构建 IN 子句的占位符
-            let placeholders: Vec<String> = apps.iter().enumerate()
+            let placeholders: Vec<String> = apps
+                .iter()
+                .enumerate()
                 .map(|(i, _)| format!("?{}", i + 3))
                 .collect();
             let in_clause = placeholders.join(", ");
@@ -581,7 +615,7 @@ impl Repository {
             );
 
             let mut stmt = conn.prepare(&query)?;
-            
+
             // 构建参数
             let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
             params_vec.push(Box::new(start));
@@ -589,28 +623,29 @@ impl Repository {
             for app in &apps {
                 params_vec.push(Box::new(app.clone()));
             }
-            
-            let params_refs: Vec<&dyn rusqlite::ToSql> = params_vec.iter()
-                .map(|p| p.as_ref())
-                .collect();
 
-            let app_usages_with_time: Vec<AppUsageInCategory> = stmt.query_map(params_refs.as_slice(), |row| {
-                Ok(AppUsageInCategory {
-                    app_name: row.get(0)?,
-                    total_seconds: row.get(1)?,
-                })
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
+            let params_refs: Vec<&dyn rusqlite::ToSql> =
+                params_vec.iter().map(|p| p.as_ref()).collect();
+
+            let app_usages_with_time: Vec<AppUsageInCategory> = stmt
+                .query_map(params_refs.as_slice(), |row| {
+                    Ok(AppUsageInCategory {
+                        app_name: row.get(0)?,
+                        total_seconds: row.get(1)?,
+                    })
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
 
             // 创建一个包含所有分类应用的列表，包括没有使用记录的应用
             let mut all_app_usages: Vec<AppUsageInCategory> = Vec::new();
-            let apps_with_time: std::collections::HashSet<String> = app_usages_with_time.iter()
+            let apps_with_time: std::collections::HashSet<String> = app_usages_with_time
+                .iter()
                 .map(|a| a.app_name.clone())
                 .collect();
-            
+
             // 先添加有使用记录的应用
             all_app_usages.extend(app_usages_with_time);
-            
+
             // 再添加没有使用记录的应用（时间为0）
             for app_name in &apps {
                 if !apps_with_time.contains(app_name) {
@@ -640,13 +675,13 @@ impl Repository {
     /// 设置应用的分类（替换所有现有分类）
     pub fn set_app_categories(&self, app_name: &str, category_ids: &[i64]) -> Result<(), DbError> {
         let conn = self.pool.get()?;
-        
+
         // 先删除该应用的所有分类关联
         conn.execute(
             "DELETE FROM app_categories WHERE app_name = ?1",
             params![app_name],
         )?;
-        
+
         // 添加新的分类关联
         for category_id in category_ids {
             conn.execute(
@@ -654,21 +689,65 @@ impl Repository {
                 params![app_name, category_id],
             )?;
         }
-        
+
         Ok(())
     }
 
     /// 获取所有已记录的应用名称（用于分类管理）
     pub fn get_all_app_names(&self) -> Result<Vec<String>, DbError> {
         let conn = self.pool.get()?;
-        let mut stmt = conn.prepare(
-            "SELECT DISTINCT app_name FROM window_events ORDER BY app_name ASC",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT DISTINCT app_name FROM window_events ORDER BY app_name ASC")?;
 
-        let apps = stmt.query_map([], |row| row.get(0))?
+        let apps = stmt
+            .query_map([], |row| row.get(0))?
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(apps)
+    }
+
+    // ==================== 应用别名管理 ====================
+
+    /// 设置应用别名
+    pub fn set_app_alias(&self, app_name: &str, alias: &str) -> Result<(), DbError> {
+        let conn = self.pool.get()?;
+        conn.execute(
+            "INSERT OR REPLACE INTO app_aliases (app_name, alias) VALUES (?1, ?2)",
+            params![app_name, alias],
+        )?;
+        Ok(())
+    }
+
+    /// 获取应用别名
+    pub fn get_app_alias(&self, app_name: &str) -> Result<Option<String>, DbError> {
+        let conn = self.pool.get()?;
+        let mut stmt = conn.prepare("SELECT alias FROM app_aliases WHERE app_name = ?1")?;
+
+        let alias = stmt.query_row(params![app_name], |row| row.get(0))?;
+        Ok(Some(alias))
+    }
+
+    /// 获取所有应用别名
+    pub fn get_all_aliases(&self) -> Result<Vec<(String, String)>, DbError> {
+        let conn = self.pool.get()?;
+        let mut stmt =
+            conn.prepare("SELECT app_name, alias FROM app_aliases ORDER BY app_name ASC")?;
+
+        let aliases = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(aliases)
+    }
+
+    /// 删除应用别名
+    pub fn delete_app_alias(&self, app_name: &str) -> Result<(), DbError> {
+        let conn = self.pool.get()?;
+        conn.execute(
+            "DELETE FROM app_aliases WHERE app_name = ?1",
+            params![app_name],
+        )?;
+        Ok(())
     }
 
     // ==================== 层级式时间统计查询 ====================
@@ -677,9 +756,9 @@ impl Repository {
     pub fn get_yearly_usage(&self, years: i32) -> Result<Vec<PeriodUsage>, DbError> {
         let conn = self.pool.get()?;
         let current_year = Local::now().year();
-        
+
         let mut result = Vec::new();
-        
+
         for i in 0..years {
             let year = current_year - i;
             let year_start = chrono::NaiveDate::from_ymd_opt(year, 1, 1)
@@ -696,35 +775,33 @@ impl Repository {
                 .and_local_timezone(Local)
                 .unwrap()
                 .with_timezone(&Utc);
-            
+
             let mut stmt = conn.prepare(
                 "SELECT COALESCE(SUM(duration_secs), 0)
                  FROM window_events
                  WHERE timestamp >= ?1 AND timestamp <= ?2 AND is_afk = 0",
             )?;
-            
+
             let total: i64 = stmt.query_row(params![year_start, year_end], |row| row.get(0))?;
-            
+
             result.push(PeriodUsage {
                 label: format!("{}年", year),
                 index: year,
                 total_seconds: total,
             });
         }
-        
+
         // 反转使其从旧到新排列
         result.reverse();
-        
+
         Ok(result)
     }
 
     /// 获取某年按月份汇总的使用统计
     pub fn get_monthly_usage(&self, year: i32) -> Result<Vec<PeriodUsage>, DbError> {
-        use chrono::Datelike;
-        
         let conn = self.pool.get()?;
         let mut result = Vec::new();
-        
+
         for month in 1..=12 {
             let month_start = chrono::NaiveDate::from_ymd_opt(year, month, 1)
                 .unwrap()
@@ -733,70 +810,72 @@ impl Repository {
                 .and_local_timezone(Local)
                 .unwrap()
                 .with_timezone(&Utc);
-            
+
             // 计算月末
             let next_month = if month == 12 {
                 chrono::NaiveDate::from_ymd_opt(year + 1, 1, 1)
             } else {
                 chrono::NaiveDate::from_ymd_opt(year, month + 1, 1)
-            }.unwrap();
+            }
+            .unwrap();
             let last_day = next_month.pred_opt().unwrap();
-            
+
             let month_end = last_day
                 .and_hms_opt(23, 59, 59)
                 .unwrap()
                 .and_local_timezone(Local)
                 .unwrap()
                 .with_timezone(&Utc);
-            
+
             let mut stmt = conn.prepare(
                 "SELECT COALESCE(SUM(duration_secs), 0)
                  FROM window_events
                  WHERE timestamp >= ?1 AND timestamp <= ?2 AND is_afk = 0",
             )?;
-            
+
             let total: i64 = stmt.query_row(params![month_start, month_end], |row| row.get(0))?;
-            
+
             result.push(PeriodUsage {
                 label: format!("{}月", month),
                 index: month as i32,
                 total_seconds: total,
             });
         }
-        
+
         Ok(result)
     }
 
     /// 获取某年某月按周汇总的使用统计
     pub fn get_weekly_usage(&self, year: i32, month: u32) -> Result<Vec<PeriodUsage>, DbError> {
         use chrono::Datelike;
-        
+
         let conn = self.pool.get()?;
         let mut result = Vec::new();
-        
+
         // 获取该月的第一天和最后一天
         let first_day = chrono::NaiveDate::from_ymd_opt(year, month, 1).unwrap();
         let next_month = if month == 12 {
             chrono::NaiveDate::from_ymd_opt(year + 1, 1, 1)
         } else {
             chrono::NaiveDate::from_ymd_opt(year, month + 1, 1)
-        }.unwrap();
+        }
+        .unwrap();
         let last_day = next_month.pred_opt().unwrap();
-        
+
         // 按周分组
         let mut week_num = 1;
         let mut current_day = first_day;
-        
+
         while current_day <= last_day {
             // 计算本周的开始和结束
             let week_start = current_day;
             let mut week_end = current_day;
-            
+
             // 找到本周的最后一天（周日或月末）
             while week_end.weekday() != chrono::Weekday::Sun && week_end < last_day {
                 week_end = week_end.succ_opt().unwrap();
             }
-            
+
             let start_dt = week_start
                 .and_hms_opt(0, 0, 0)
                 .unwrap()
@@ -809,49 +888,55 @@ impl Repository {
                 .and_local_timezone(Local)
                 .unwrap()
                 .with_timezone(&Utc);
-            
+
             let mut stmt = conn.prepare(
                 "SELECT COALESCE(SUM(duration_secs), 0)
                  FROM window_events
                  WHERE timestamp >= ?1 AND timestamp <= ?2 AND is_afk = 0",
             )?;
-            
+
             let total: i64 = stmt.query_row(params![start_dt, end_dt], |row| row.get(0))?;
-            
+
             result.push(PeriodUsage {
                 label: format!("第{}周", week_num),
                 index: week_num,
                 total_seconds: total,
             });
-            
+
             // 移动到下一周
             current_day = week_end.succ_opt().unwrap();
             week_num += 1;
         }
-        
+
         Ok(result)
     }
 
     /// 获取某年某月某周按天汇总的使用统计
-    pub fn get_daily_usage_for_week(&self, year: i32, month: u32, week: u32) -> Result<Vec<PeriodUsage>, DbError> {
+    pub fn get_daily_usage_for_week(
+        &self,
+        year: i32,
+        month: u32,
+        week: u32,
+    ) -> Result<Vec<PeriodUsage>, DbError> {
         use chrono::Datelike;
-        
+
         let conn = self.pool.get()?;
         let mut result = Vec::new();
-        
+
         // 获取该月的第一天
         let first_day = chrono::NaiveDate::from_ymd_opt(year, month, 1).unwrap();
         let next_month = if month == 12 {
             chrono::NaiveDate::from_ymd_opt(year + 1, 1, 1)
         } else {
             chrono::NaiveDate::from_ymd_opt(year, month + 1, 1)
-        }.unwrap();
+        }
+        .unwrap();
         let last_day = next_month.pred_opt().unwrap();
-        
+
         // 找到指定周的开始日期
         let mut current_day = first_day;
         let mut current_week = 1u32;
-        
+
         while current_week < week && current_day <= last_day {
             // 跳到下一周
             while current_day.weekday() != chrono::Weekday::Sun && current_day < last_day {
@@ -860,18 +945,18 @@ impl Repository {
             current_day = current_day.succ_opt().unwrap_or(current_day);
             current_week += 1;
         }
-        
+
         // 收集该周的每一天
         let week_start = current_day;
         let mut day = week_start;
-        
+
         let weekday_names = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
-        
+
         loop {
             if day > last_day {
                 break;
             }
-            
+
             let start_dt = day
                 .and_hms_opt(0, 0, 0)
                 .unwrap()
@@ -884,40 +969,45 @@ impl Repository {
                 .and_local_timezone(Local)
                 .unwrap()
                 .with_timezone(&Utc);
-            
+
             let mut stmt = conn.prepare(
                 "SELECT COALESCE(SUM(duration_secs), 0)
                  FROM window_events
                  WHERE timestamp >= ?1 AND timestamp <= ?2 AND is_afk = 0",
             )?;
-            
+
             let total: i64 = stmt.query_row(params![start_dt, end_dt], |row| row.get(0))?;
-            
+
             let weekday_idx = day.weekday().num_days_from_monday() as usize;
             result.push(PeriodUsage {
                 label: weekday_names[weekday_idx].to_string(),
                 index: day.day() as i32,
                 total_seconds: total,
             });
-            
+
             // 如果是周日或月末，结束
             if day.weekday() == chrono::Weekday::Sun || day >= last_day {
                 break;
             }
-            
+
             day = day.succ_opt().unwrap();
         }
-        
+
         Ok(result)
     }
 
     /// 获取某天按小时汇总的使用统计
-    pub fn get_hourly_usage(&self, year: i32, month: u32, day: u32) -> Result<Vec<PeriodUsage>, DbError> {
+    pub fn get_hourly_usage(
+        &self,
+        year: i32,
+        month: u32,
+        day: u32,
+    ) -> Result<Vec<PeriodUsage>, DbError> {
         let conn = self.pool.get()?;
         let mut result = Vec::new();
-        
+
         let date = chrono::NaiveDate::from_ymd_opt(year, month, day).unwrap();
-        
+
         for hour in 0..24 {
             let hour_start = date
                 .and_hms_opt(hour, 0, 0)
@@ -931,24 +1021,191 @@ impl Repository {
                 .and_local_timezone(Local)
                 .unwrap()
                 .with_timezone(&Utc);
-            
+
             let mut stmt = conn.prepare(
                 "SELECT COALESCE(SUM(duration_secs), 0)
                  FROM window_events
                  WHERE timestamp >= ?1 AND timestamp <= ?2 AND is_afk = 0",
             )?;
-            
+
             let total: i64 = stmt.query_row(params![hour_start, hour_end], |row| row.get(0))?;
-            
+
             result.push(PeriodUsage {
                 label: format!("{}时", hour),
                 index: hour as i32,
                 total_seconds: total,
             });
         }
-        
+
         Ok(result)
     }
+
+    // ==================== 统一时间查询方法 ====================
+
+    /// 统一的时间段使用统计查询
+    ///
+    /// 根据给定的时间段列表查询每个时间段的使用统计
+    pub fn get_period_usage_batch(
+        &self,
+        periods: &[(DateTime<Utc>, DateTime<Utc>, String, i32)],
+    ) -> Result<Vec<PeriodUsage>, DbError> {
+        let conn = self.pool.get()?;
+        let mut result = Vec::new();
+
+        for (start, end, label_format, index) in periods {
+            let mut stmt = conn.prepare(
+                "SELECT COALESCE(SUM(duration_secs), 0)
+                 FROM window_events
+                 WHERE timestamp >= ?1 AND timestamp <= ?2 AND is_afk = 0",
+            )?;
+
+            let total: i64 = stmt.query_row(params![start, end], |row| row.get(0))?;
+
+            result.push(PeriodUsage {
+                label: label_format.clone(),
+                index: *index,
+                total_seconds: total,
+            });
+        }
+
+        Ok(result)
+    }
+
+    /// 获取按指定时间间隔分组的统计数据
+    ///
+    /// 此方法提供了一个统一的接口来获取不同时间粒度的统计数据
+    pub fn get_usage_by_interval(
+        &self,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+        interval: TimeInterVal,
+    ) -> Result<Vec<PeriodUsage>, DbError> {
+        let conn = self.pool.get()?;
+
+        match interval {
+            TimeInterVal::Hour => {
+                // 按小时分组
+                let mut stmt = conn.prepare(
+                    "SELECT CAST(strftime('%H', datetime(timestamp, 'localtime')) AS INTEGER) as hour,
+                            COALESCE(SUM(duration_secs), 0) as total
+                     FROM window_events
+                     WHERE timestamp >= ?1 AND timestamp <= ?2 AND is_afk = 0
+                     GROUP BY hour
+                     ORDER BY hour",
+                )?;
+
+                let rows = stmt
+                    .query_map(params![start, end], |row| {
+                        Ok((row.get::<_, i32>(0)?, row.get::<_, i64>(1)?))
+                    })?
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let result = rows
+                    .into_iter()
+                    .map(|(hour, total)| PeriodUsage {
+                        label: format!("{}时", hour),
+                        index: hour,
+                        total_seconds: total,
+                    })
+                    .collect();
+
+                Ok(result)
+            }
+            TimeInterVal::Day => {
+                // 按天分组
+                let mut stmt = conn.prepare(
+                    "SELECT CAST(strftime('%j', datetime(timestamp, 'localtime')) AS INTEGER) as day,
+                            COALESCE(SUM(duration_secs), 0) as total
+                     FROM window_events
+                     WHERE timestamp >= ?1 AND timestamp <= ?2 AND is_afk = 0
+                     GROUP BY day
+                     ORDER BY day",
+                )?;
+
+                let rows = stmt
+                    .query_map(params![start, end], |row| {
+                        Ok((row.get::<_, i32>(0)?, row.get::<_, i64>(1)?))
+                    })?
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let result = rows
+                    .into_iter()
+                    .map(|(day, total)| PeriodUsage {
+                        label: format!("第{}天", day),
+                        index: day,
+                        total_seconds: total,
+                    })
+                    .collect();
+
+                Ok(result)
+            }
+            TimeInterVal::Week => {
+                // 按周分组
+                let mut stmt = conn.prepare(
+                    "SELECT CAST(strftime('%W', datetime(timestamp, 'localtime')) AS INTEGER) as week,
+                            COALESCE(SUM(duration_secs), 0) as total
+                     FROM window_events
+                     WHERE timestamp >= ?1 AND timestamp <= ?2 AND is_afk = 0
+                     GROUP BY week
+                     ORDER BY week",
+                )?;
+
+                let rows = stmt
+                    .query_map(params![start, end], |row| {
+                        Ok((row.get::<_, i32>(0)?, row.get::<_, i64>(1)?))
+                    })?
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let result = rows
+                    .into_iter()
+                    .map(|(week, total)| PeriodUsage {
+                        label: format!("第{}周", week),
+                        index: week,
+                        total_seconds: total,
+                    })
+                    .collect();
+
+                Ok(result)
+            }
+            TimeInterVal::Month => {
+                // 按月分组
+                let mut stmt = conn.prepare(
+                    "SELECT CAST(strftime('%m', datetime(timestamp, 'localtime')) AS INTEGER) as month,
+                            COALESCE(SUM(duration_secs), 0) as total
+                     FROM window_events
+                     WHERE timestamp >= ?1 AND timestamp <= ?2 AND is_afk = 0
+                     GROUP BY month
+                     ORDER BY month",
+                )?;
+
+                let rows = stmt
+                    .query_map(params![start, end], |row| {
+                        Ok((row.get::<_, i32>(0)?, row.get::<_, i64>(1)?))
+                    })?
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let result = rows
+                    .into_iter()
+                    .map(|(month, total)| PeriodUsage {
+                        label: format!("{}月", month),
+                        index: month,
+                        total_seconds: total,
+                    })
+                    .collect();
+
+                Ok(result)
+            }
+        }
+    }
+}
+
+/// 时间间隔枚举，用于统一查询
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TimeInterVal {
+    Hour,
+    Day,
+    Week,
+    Month,
 }
 
 #[cfg(test)]
@@ -987,11 +1244,11 @@ mod tests {
     #[test]
     fn test_get_window_events() {
         let repo = create_test_repo();
-        
+
         // 插入测试数据
         let event1 = create_test_event("firefox", 120);
         let event2 = create_test_event("kitty", 60);
-        
+
         repo.insert_window_event(&event1).unwrap();
         repo.insert_window_event(&event2).unwrap();
 
@@ -1006,18 +1263,21 @@ mod tests {
     #[test]
     fn test_get_app_usage() {
         let repo = create_test_repo();
-        
+
         // 插入多个相同应用的事件
-        repo.insert_window_event(&create_test_event("firefox", 120)).unwrap();
-        repo.insert_window_event(&create_test_event("firefox", 180)).unwrap();
-        repo.insert_window_event(&create_test_event("kitty", 60)).unwrap();
+        repo.insert_window_event(&create_test_event("firefox", 120))
+            .unwrap();
+        repo.insert_window_event(&create_test_event("firefox", 180))
+            .unwrap();
+        repo.insert_window_event(&create_test_event("kitty", 60))
+            .unwrap();
 
         let start = Utc::now() - chrono::Duration::hours(1);
         let end = Utc::now() + chrono::Duration::hours(1);
         let usage = repo.get_app_usage(start, end).unwrap();
 
         assert_eq!(usage.len(), 2);
-        
+
         // firefox 应该排在第一位（总时长最长）
         assert_eq!(usage[0].app_name, "firefox");
         assert_eq!(usage[0].total_seconds, 300); // 120 + 180
@@ -1027,7 +1287,7 @@ mod tests {
     fn test_update_window_event_duration() {
         let repo = create_test_repo();
         let event = create_test_event("firefox", 0);
-        
+
         let id = repo.insert_window_event(&event).unwrap();
         repo.update_window_event_duration(id, 300).unwrap();
 
@@ -1041,7 +1301,7 @@ mod tests {
     #[test]
     fn test_afk_events() {
         let repo = create_test_repo();
-        
+
         let afk_event = AfkEvent {
             id: None,
             start_time: Utc::now(),
@@ -1067,7 +1327,7 @@ mod tests {
     #[test]
     fn test_daily_goals() {
         let repo = create_test_repo();
-        
+
         let goal = DailyGoal {
             id: None,
             app_name: "firefox".to_string(),
@@ -1104,10 +1364,12 @@ mod tests {
     #[test]
     fn test_get_today_app_usage() {
         let repo = create_test_repo();
-        
+
         // 插入今天的数据
-        repo.insert_window_event(&create_test_event("firefox", 120)).unwrap();
-        repo.insert_window_event(&create_test_event("firefox", 180)).unwrap();
+        repo.insert_window_event(&create_test_event("firefox", 120))
+            .unwrap();
+        repo.insert_window_event(&create_test_event("firefox", 180))
+            .unwrap();
 
         let total = repo.get_today_app_usage("firefox").unwrap();
         assert_eq!(total, 300);

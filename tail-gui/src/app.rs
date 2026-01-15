@@ -1,14 +1,17 @@
 //! TaiL GUI - egui 应用
 
-use chrono::{DateTime, Utc, Local, Duration as ChronoDuration, Datelike};
-use egui::{Color32, Rounding, Vec2};
-use tail_core::{DbConfig, Repository, AppUsage, DailyGoal};
-use tail_core::models::{TimeRange, TimeNavigationState};
+use chrono::{DateTime, Datelike, Duration as ChronoDuration, Local, Utc};
 use std::sync::Arc;
+use tail_core::models::{TimeNavigationState, TimeRange};
+use tail_core::{AppUsage, DailyGoal, DbConfig, Repository};
 
+use crate::components::{AliasDialog, NavigationMode, SidebarNav, TopTabNav, View};
 use crate::icons::IconCache;
 use crate::theme::{TaiLTheme, ThemeType};
-use crate::views::{DashboardView, StatisticsView, SettingsView, SettingsAction, AddGoalDialog, CategoriesView};
+use crate::views::{
+    AddGoalDialog, CategoriesView, DashboardView, DetailsView, SettingsAction, SettingsView,
+    StatisticsView,
+};
 
 /// TaiL GUI 应用
 pub struct TaiLApp {
@@ -54,23 +57,23 @@ pub struct TaiLApp {
     /// 添加目标对话框
     add_goal_dialog: AddGoalDialog,
 
+    /// 别名对话框
+    alias_dialog: AliasDialog,
+
     /// 分类视图（持久化状态）
     categories_view: CategoriesView,
+
+    /// 详细视图（持久化状态）
+    details_view: DetailsView,
 
     /// 是否已应用主题
     theme_applied: bool,
 
     /// 窗口是否可见（用于检测工作区切换）
     was_visible: bool,
-}
 
-/// 视图类型
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum View {
-    Dashboard,
-    Statistics,
-    Categories,
-    Settings,
+    /// 导航模式
+    navigation_mode: NavigationMode,
 }
 
 impl TaiLApp {
@@ -81,15 +84,14 @@ impl TaiLApp {
 
         let config = DbConfig::default();
         tracing::info!("初始化数据库，路径: {}", config.path);
-        
-        let repo = Repository::new(&config)
-            .expect("Failed to initialize database");
-        
+
+        let repo = Repository::new(&config).expect("Failed to initialize database");
+
         tracing::info!("TaiL GUI 应用初始化成功");
 
         let theme_type = ThemeType::default();
         let theme = theme_type.to_theme();
-        
+
         // 初始化导航状态为当前年份的月视图
         let current_year = Local::now().year();
         let navigation_state = TimeNavigationState::new(current_year);
@@ -109,9 +111,12 @@ impl TaiLApp {
             theme: theme.clone(),
             icon_cache: IconCache::new(),
             add_goal_dialog: AddGoalDialog::new(),
-            categories_view: CategoriesView::new(theme),
+            alias_dialog: AliasDialog::default(),
+            categories_view: CategoriesView::new(theme.clone()),
+            details_view: DetailsView::new(),
             theme_applied: false,
             was_visible: true,
+            navigation_mode: NavigationMode::default(), // 默认为侧边栏模式
         }
     }
 
@@ -128,13 +133,14 @@ impl TaiLApp {
 
         // 仪表板固定显示今天的数据（使用本地时间计算"今天"的开始）
         let local_now = Local::now();
-        let today_start = local_now.date_naive()
+        let today_start = local_now
+            .date_naive()
             .and_hms_opt(0, 0, 0)
             .unwrap()
             .and_local_timezone(Local)
             .unwrap()
             .with_timezone(&Utc);
-        
+
         match self.repo.get_app_usage(today_start, now) {
             Ok(usage) => {
                 tracing::debug!("仪表板获取 {} 条应用使用记录", usage.len());
@@ -170,9 +176,11 @@ impl TaiLApp {
         }
 
         let (start, end) = self.get_stats_time_range_bounds();
-        
+        eprintln!("[DEBUG] app.rs - 刷新统计数据: start={:?}, end={:?}", start, end);
+
         match self.repo.get_app_usage(start, end) {
             Ok(usage) => {
+                eprintln!("[DEBUG] app.rs - 获取到 {} 条应用使用记录", usage.len());
                 tracing::debug!("统计页面获取 {} 条应用使用记录", usage.len());
                 self.stats_usage_cache = usage;
             }
@@ -188,11 +196,12 @@ impl TaiLApp {
     fn get_stats_time_range_bounds(&self) -> (DateTime<Utc>, DateTime<Utc>) {
         let now = Utc::now();
         let local_now = Local::now();
-        
+
         match self.stats_time_range {
             TimeRange::Today => {
                 // 使用本地时间计算"今天"的开始
-                let today_start = local_now.date_naive()
+                let today_start = local_now
+                    .date_naive()
                     .and_hms_opt(0, 0, 0)
                     .unwrap()
                     .and_local_timezone(Local)
@@ -203,13 +212,15 @@ impl TaiLApp {
             TimeRange::Yesterday => {
                 // 使用本地时间计算"昨天"
                 let local_yesterday = local_now - ChronoDuration::days(1);
-                let yesterday_start = local_yesterday.date_naive()
+                let yesterday_start = local_yesterday
+                    .date_naive()
                     .and_hms_opt(0, 0, 0)
                     .unwrap()
                     .and_local_timezone(Local)
                     .unwrap()
                     .with_timezone(&Utc);
-                let yesterday_end = local_yesterday.date_naive()
+                let yesterday_end = local_yesterday
+                    .date_naive()
                     .and_hms_opt(23, 59, 59)
                     .unwrap()
                     .and_local_timezone(Local)
@@ -220,7 +231,8 @@ impl TaiLApp {
             TimeRange::Last7Days => {
                 // 使用本地时间计算7天前的开始
                 let local_week_ago = local_now - ChronoDuration::days(7);
-                let week_ago_start = local_week_ago.date_naive()
+                let week_ago_start = local_week_ago
+                    .date_naive()
                     .and_hms_opt(0, 0, 0)
                     .unwrap()
                     .and_local_timezone(Local)
@@ -231,7 +243,8 @@ impl TaiLApp {
             TimeRange::Last30Days => {
                 // 使用本地时间计算30天前的开始
                 let local_month_ago = local_now - ChronoDuration::days(30);
-                let month_ago_start = local_month_ago.date_naive()
+                let month_ago_start = local_month_ago
+                    .date_naive()
                     .and_hms_opt(0, 0, 0)
                     .unwrap()
                     .and_local_timezone(Local)
@@ -261,6 +274,23 @@ impl TaiLApp {
     fn delete_daily_goal(&mut self, app_name: &str) {
         if let Ok(()) = self.repo.delete_daily_goal(app_name) {
             self.daily_goals_cache.retain(|g| g.app_name != app_name);
+        }
+    }
+
+    /// 设置应用别名
+    fn set_app_alias(&mut self, app_name: String, alias: String) {
+        if alias.is_empty() {
+            // 删除别名
+            let _ = self.repo.delete_app_alias(&app_name);
+        } else {
+            let _ = self.repo.set_app_alias(&app_name, &alias);
+        }
+    }
+
+    /// 打开别名管理对话框
+    fn open_alias_management(&mut self) {
+        if let Ok(aliases) = self.repo.get_all_aliases() {
+            self.alias_dialog.open_for_management(aliases);
         }
     }
 }
@@ -298,7 +328,8 @@ impl eframe::App for TaiLApp {
             View::Dashboard => self.refresh_dashboard_data(),
             View::Statistics => self.refresh_stats_data(),
             View::Categories => self.refresh_dashboard_data(), // 分类页面也刷新仪表板数据
-            View::Settings => self.refresh_dashboard_data(), // 设置页面也刷新仪表板数据
+            View::Details => self.refresh_dashboard_data(),    // 详细页面也刷新仪表板数据
+            View::Settings => self.refresh_dashboard_data(),   // 设置页面也刷新仪表板数据
         }
 
         // 处理添加目标对话框
@@ -306,90 +337,36 @@ impl eframe::App for TaiLApp {
             self.add_daily_goal(goal);
         }
 
-        // 顶部导航栏
-        egui::TopBottomPanel::top("nav_bar")
-            .frame(egui::Frame::none()
-                .fill(self.theme.card_background)
-                .inner_margin(egui::Margin::symmetric(16.0, 8.0)))
-            .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    // Logo - 直接使用文字，不使用 emoji
-                    ui.label(egui::RichText::new("TaiL")
-                        .size(self.theme.heading_size)
-                        .color(self.theme.text_color)
-                        .strong());
-                    
-                    ui.add_space(24.0);
+        // 处理别名对话框
+        if let Some((app_name, alias)) = self.alias_dialog.show(ctx, &self.theme) {
+            self.set_app_alias(app_name, alias);
+        }
 
-                    // 导航按钮
-                    let nav_items = [
-                        (View::Dashboard, "仪表板", "📊"),
-                        (View::Statistics, "统计", "📈"),
-                        (View::Categories, "分类", "📂"),
-                        (View::Settings, "设置", "⚙"),
-                    ];
+        // 根据导航模式显示导航栏
+        let new_view = match self.navigation_mode {
+            NavigationMode::Sidebar => {
+                let mut nav =
+                    SidebarNav::new(self.current_view, &self.theme, &mut self.navigation_mode);
+                nav.show(ctx)
+            }
+            NavigationMode::TopTab => {
+                let mut nav =
+                    TopTabNav::new(self.current_view, &self.theme, &mut self.navigation_mode);
+                nav.show(ctx)
+            }
+        };
 
-                    for (view, label, icon) in nav_items {
-                        let is_selected = self.current_view == view;
-                        
-                        let button = egui::Button::new(
-                            egui::RichText::new(format!("{} {}", icon, label))
-                                .size(self.theme.body_size)
-                                .color(if is_selected {
-                                    Color32::WHITE
-                                } else {
-                                    self.theme.text_color
-                                })
-                        )
-                        .fill(if is_selected {
-                            self.theme.primary_color
-                        } else {
-                            Color32::TRANSPARENT
-                        })
-                        .rounding(Rounding::same(8.0))
-                        .min_size(Vec2::new(100.0, 32.0));
-
-                        if ui.add(button).clicked() {
-                            self.current_view = view;
-                        }
-                    }
-
-                    // 右侧按钮
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        // 退出按钮
-                        if ui.add(
-                            egui::Button::new(
-                                egui::RichText::new("✕")
-                                    .size(16.0)
-                                    .color(self.theme.secondary_text_color)
-                            )
-                            .fill(Color32::TRANSPARENT)
-                            .rounding(Rounding::same(4.0))
-                        ).on_hover_text("退出").clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                        }
-
-                        // 最小化按钮
-                        if ui.add(
-                            egui::Button::new(
-                                egui::RichText::new("─")
-                                    .size(16.0)
-                                    .color(self.theme.secondary_text_color)
-                            )
-                            .fill(Color32::TRANSPARENT)
-                            .rounding(Rounding::same(4.0))
-                        ).on_hover_text("最小化").clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
-                        }
-                    });
-                });
-            });
+        if let Some(view) = new_view {
+            self.current_view = view;
+        }
 
         // 主内容区域
         egui::CentralPanel::default()
-            .frame(egui::Frame::none()
-                .fill(self.theme.background_color)
-                .inner_margin(egui::Margin::same(self.theme.spacing)))
+            .frame(
+                egui::Frame::none()
+                    .fill(self.theme.background_color)
+                    .inner_margin(egui::Margin::same(self.theme.spacing)),
+            )
             .show(ctx, |ui| {
                 match self.current_view {
                     View::Dashboard => {
@@ -403,7 +380,6 @@ impl eframe::App for TaiLApp {
                     View::Statistics => {
                         let mut view = StatisticsView::new(
                             &self.stats_usage_cache,
-                            self.stats_time_range,
                             &mut self.navigation_state,
                             &self.theme,
                             &mut self.icon_cache,
@@ -416,20 +392,26 @@ impl eframe::App for TaiLApp {
                     View::Categories => {
                         // 检查是否需要刷新数据
                         let now = Utc::now();
-                        let should_refresh = self.categories_view.needs_refresh() ||
-                            self.categories_last_refresh
+                        let should_refresh = self.categories_view.needs_refresh()
+                            || self
+                                .categories_last_refresh
                                 .map(|last| now.signed_duration_since(last).num_seconds() >= 5)
                                 .unwrap_or(true);
-                        
+
                         if should_refresh {
                             let (start, end) = self.get_stats_time_range_bounds();
                             self.categories_view.load_data(&self.repo, start, end);
                             self.categories_last_refresh = Some(now);
                             self.categories_view.clear_refresh_flag();
                         }
-                        
+
                         // 使用持久化的分类视图
                         self.categories_view.show(ui, &self.repo);
+                    }
+                    View::Details => {
+                        // 更新数据并显示持久化的详细视图
+                        self.details_view.update_data(&self.dashboard_usage_cache);
+                        self.details_view.show(ui, &self.theme, &mut self.icon_cache);
                     }
                     View::Settings => {
                         let view = SettingsView::new(
@@ -446,6 +428,9 @@ impl eframe::App for TaiLApp {
                             }
                             SettingsAction::ChangeTheme(theme_type) => {
                                 self.change_theme(theme_type);
+                            }
+                            SettingsAction::ManageAliases => {
+                                self.open_alias_management();
                             }
                             SettingsAction::None => {}
                         }

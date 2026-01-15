@@ -3,10 +3,10 @@
 //! 提供应用图标的加载、缓存和显示功能。
 //! 支持从系统图标目录和 .desktop 文件中查找图标。
 
+use egui::{ColorImage, Context, TextureHandle, TextureOptions};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use egui::{ColorImage, TextureHandle, TextureOptions, Context};
 
 /// 图标大小（像素）
 const ICON_SIZE: u32 = 48;
@@ -30,60 +30,60 @@ impl Default for IconCache {
 impl IconCache {
     pub fn new() -> Self {
         let mut default_labels = HashMap::new();
-        
-        // 常见应用的默认文本标签
-        default_labels.insert("code".to_string(), "VS");
-        default_labels.insert("visual studio code".to_string(), "VS");
-        default_labels.insert("vscode".to_string(), "VS");
-        default_labels.insert("firefox".to_string(), "FF");
-        default_labels.insert("chrome".to_string(), "CH");
-        default_labels.insert("chromium".to_string(), "CR");
-        default_labels.insert("brave".to_string(), "BR");
-        default_labels.insert("microsoft-edge".to_string(), "ED");
-        default_labels.insert("edge".to_string(), "ED");
-        default_labels.insert("terminal".to_string(), ">_");
-        default_labels.insert("konsole".to_string(), ">_");
-        default_labels.insert("alacritty".to_string(), ">_");
-        default_labels.insert("kitty".to_string(), ">_");
-        default_labels.insert("wezterm".to_string(), ">_");
-        default_labels.insert("discord".to_string(), "DC");
-        default_labels.insert("slack".to_string(), "SL");
-        default_labels.insert("telegram".to_string(), "TG");
-        default_labels.insert("wechat".to_string(), "WX");
-        default_labels.insert("feishu".to_string(), "FS");
-        default_labels.insert("bytedance-feishu".to_string(), "FS");
-        default_labels.insert("spotify".to_string(), "SP");
-        default_labels.insert("nautilus".to_string(), "FM");
-        default_labels.insert("dolphin".to_string(), "FM");
-        default_labels.insert("thunar".to_string(), "FM");
-        default_labels.insert("steam".to_string(), "ST");
-        default_labels.insert("obs".to_string(), "OB");
-        default_labels.insert("obs studio".to_string(), "OB");
-        default_labels.insert("gimp".to_string(), "GP");
-        default_labels.insert("inkscape".to_string(), "IK");
-        default_labels.insert("krita".to_string(), "KR");
-        default_labels.insert("blender".to_string(), "BL");
-        default_labels.insert("libreoffice".to_string(), "LO");
-        default_labels.insert("thunderbird".to_string(), "TB");
-        default_labels.insert("evolution".to_string(), "EV");
-        default_labels.insert("vlc".to_string(), "VL");
-        default_labels.insert("mpv".to_string(), "MP");
-        default_labels.insert("zathura".to_string(), "ZA");
-        default_labels.insert("evince".to_string(), "EV");
-        default_labels.insert("okular".to_string(), "OK");
-        default_labels.insert("neovim".to_string(), "NV");
-        default_labels.insert("nvim".to_string(), "NV");
-        default_labels.insert("vim".to_string(), "VI");
-        default_labels.insert("emacs".to_string(), "EM");
-        default_labels.insert("jetbrains".to_string(), "JB");
-        default_labels.insert("idea".to_string(), "IJ");
-        default_labels.insert("pycharm".to_string(), "PC");
-        default_labels.insert("webstorm".to_string(), "WS");
-        default_labels.insert("clion".to_string(), "CL");
-        default_labels.insert("goland".to_string(), "GO");
-        default_labels.insert("zed".to_string(), "ZD");
-        default_labels.insert("dev.zed.zed".to_string(), "ZD");
-        
+
+        // 常见应用的默认 emoji 标签（使用 egui 内置 emoji）
+        default_labels.insert("code".to_string(), "💻");
+        default_labels.insert("visual studio code".to_string(), "💻");
+        default_labels.insert("vscode".to_string(), "💻");
+        default_labels.insert("firefox".to_string(), "🦊");
+        default_labels.insert("chrome".to_string(), "🌐");
+        default_labels.insert("chromium".to_string(), "🌐");
+        default_labels.insert("brave".to_string(), "🦁");
+        default_labels.insert("microsoft-edge".to_string(), "🌊");
+        default_labels.insert("edge".to_string(), "🌊");
+        default_labels.insert("terminal".to_string(), "⌨️");
+        default_labels.insert("konsole".to_string(), "⌨️");
+        default_labels.insert("alacritty".to_string(), "⌨️");
+        default_labels.insert("kitty".to_string(), "🐱");
+        default_labels.insert("wezterm".to_string(), "⌨️");
+        default_labels.insert("discord".to_string(), "🎮");
+        default_labels.insert("slack".to_string(), "💼");
+        default_labels.insert("telegram".to_string(), "✈️");
+        default_labels.insert("wechat".to_string(), "💬");
+        default_labels.insert("feishu".to_string(), "📱");
+        default_labels.insert("bytedance-feishu".to_string(), "📱");
+        default_labels.insert("spotify".to_string(), "🎵");
+        default_labels.insert("nautilus".to_string(), "📁");
+        default_labels.insert("dolphin".to_string(), "🐬");
+        default_labels.insert("thunar".to_string(), "📁");
+        default_labels.insert("steam".to_string(), "🎮");
+        default_labels.insert("obs".to_string(), "🎬");
+        default_labels.insert("obs studio".to_string(), "🎬");
+        default_labels.insert("gimp".to_string(), "🎨");
+        default_labels.insert("inkscape".to_string(), "🎨");
+        default_labels.insert("krita".to_string(), "🖌️");
+        default_labels.insert("blender".to_string(), "🥜");
+        default_labels.insert("libreoffice".to_string(), "📝");
+        default_labels.insert("thunderbird".to_string(), "📧");
+        default_labels.insert("evolution".to_string(), "📧");
+        default_labels.insert("vlc".to_string(), "🎥");
+        default_labels.insert("mpv".to_string(), "🎞️");
+        default_labels.insert("zathura".to_string(), "📄");
+        default_labels.insert("evince".to_string(), "📄");
+        default_labels.insert("okular".to_string(), "📄");
+        default_labels.insert("neovim".to_string(), "📝");
+        default_labels.insert("nvim".to_string(), "📝");
+        default_labels.insert("vim".to_string(), "📝");
+        default_labels.insert("emacs".to_string(), "📝");
+        default_labels.insert("jetbrains".to_string(), "💻");
+        default_labels.insert("idea".to_string(), "💻");
+        default_labels.insert("pycharm".to_string(), "🐍");
+        default_labels.insert("webstorm".to_string(), "🌐");
+        default_labels.insert("clion".to_string(), "🔧");
+        default_labels.insert("goland".to_string(), "🐹");
+        default_labels.insert("zed".to_string(), "✨");
+        default_labels.insert("dev.zed.zed".to_string(), "✨");
+
         Self {
             textures: HashMap::new(),
             icon_paths: HashMap::new(),
@@ -91,35 +91,35 @@ impl IconCache {
         }
     }
 
-    /// 获取应用的文本标签（当没有图标时使用）
+    /// 获取应用的 emoji 标签（当没有图标时使用）
     pub fn get_emoji(&self, app_name: &str) -> &'static str {
         let name_lower = app_name.to_lowercase();
-        
+
         // 首先尝试精确匹配
         if let Some(label) = self.default_labels.get(&name_lower) {
             return label;
         }
-        
+
         // 然后尝试部分匹配
         for (key, label) in &self.default_labels {
             if name_lower.contains(key) || key.contains(&name_lower) {
                 return label;
             }
         }
-        
-        // 默认标签
-        "AP"
+
+        // 默认标签（通用应用图标）
+        "📦"
     }
 
     /// 获取应用图标的纹理句柄
     pub fn get_texture(&mut self, ctx: &Context, app_name: &str) -> Option<Arc<TextureHandle>> {
         let name_lower = app_name.to_lowercase();
-        
+
         // 检查纹理缓存
         if let Some(cached) = self.textures.get(&name_lower) {
             return cached.clone();
         }
-        
+
         // 尝试加载图标
         let texture = self.load_icon_texture(ctx, &name_lower);
         self.textures.insert(name_lower, texture.clone());
@@ -130,38 +130,33 @@ impl IconCache {
     fn load_icon_texture(&mut self, ctx: &Context, app_name: &str) -> Option<Arc<TextureHandle>> {
         // 获取图标路径
         let icon_path = self.get_icon_path(app_name)?;
-        
+
         tracing::debug!("加载图标: {} -> {:?}", app_name, icon_path);
-        
+
         // 加载图片
         let image = self.load_image(&icon_path)?;
-        
+
         // 创建纹理
-        let texture = ctx.load_texture(
-            format!("icon_{}", app_name),
-            image,
-            TextureOptions::LINEAR,
-        );
-        
+        let texture = ctx.load_texture(format!("icon_{}", app_name), image, TextureOptions::LINEAR);
+
         Some(Arc::new(texture))
     }
 
     /// 加载图片文件
     fn load_image(&self, path: &PathBuf) -> Option<ColorImage> {
         let extension = path.extension()?.to_str()?.to_lowercase();
-        
+
         match extension.as_str() {
             "png" | "jpg" | "jpeg" | "ico" => {
                 let img = image::open(path).ok()?;
-                let img = img.resize_exact(ICON_SIZE, ICON_SIZE, image::imageops::FilterType::Lanczos3);
+                let img =
+                    img.resize_exact(ICON_SIZE, ICON_SIZE, image::imageops::FilterType::Lanczos3);
                 let rgba = img.to_rgba8();
                 let size = [rgba.width() as usize, rgba.height() as usize];
                 let pixels = rgba.into_raw();
                 Some(ColorImage::from_rgba_unmultiplied(size, &pixels))
             }
-            "svg" => {
-                self.load_svg(path)
-            }
+            "svg" => self.load_svg(path),
             _ => None,
         }
     }
@@ -169,31 +164,31 @@ impl IconCache {
     /// 加载 SVG 文件并渲染为位图
     fn load_svg(&self, path: &PathBuf) -> Option<ColorImage> {
         let svg_data = std::fs::read(path).ok()?;
-        
+
         // 解析 SVG
         let options = resvg::usvg::Options::default();
         let tree = resvg::usvg::Tree::from_data(&svg_data, &options).ok()?;
-        
+
         // 创建像素缓冲区
         let size = ICON_SIZE;
         let mut pixmap = resvg::tiny_skia::Pixmap::new(size, size)?;
-        
+
         // 计算缩放比例以适应目标大小
         let tree_size = tree.size();
         let scale_x = size as f32 / tree_size.width();
         let scale_y = size as f32 / tree_size.height();
         let scale = scale_x.min(scale_y);
-        
+
         // 计算居中偏移
         let offset_x = (size as f32 - tree_size.width() * scale) / 2.0;
         let offset_y = (size as f32 - tree_size.height() * scale) / 2.0;
-        
+
         let transform = resvg::tiny_skia::Transform::from_scale(scale, scale)
             .post_translate(offset_x, offset_y);
-        
+
         // 渲染 SVG
         resvg::render(&tree, transform, &mut pixmap.as_mut());
-        
+
         // 转换为 egui ColorImage
         let pixels = pixmap.take();
         Some(ColorImage::from_rgba_unmultiplied(
@@ -211,7 +206,8 @@ impl IconCache {
 
         // 尝试查找图标
         let icon_path = self.find_icon(app_name);
-        self.icon_paths.insert(app_name.to_string(), icon_path.clone());
+        self.icon_paths
+            .insert(app_name.to_string(), icon_path.clone());
         icon_path
     }
 
@@ -219,13 +215,13 @@ impl IconCache {
     /// 使用 XDG_DATA_DIRS 环境变量动态获取搜索路径（支持 NixOS）
     fn get_icon_dirs() -> Vec<String> {
         let mut dirs = Vec::new();
-        
+
         // 从 XDG_DATA_DIRS 获取数据目录
         let xdg_data_dirs = std::env::var("XDG_DATA_DIRS")
             .unwrap_or_else(|_| "/usr/local/share:/usr/share".to_string());
-        
+
         tracing::debug!("XDG_DATA_DIRS: {}", xdg_data_dirs);
-        
+
         // 图标子目录（按优先级排序）
         let icon_subdirs = [
             "icons/hicolor/48x48/apps",
@@ -239,7 +235,7 @@ impl IconCache {
             "icons/Adwaita/scalable/apps",
             "icons/breeze/apps/48",
         ];
-        
+
         // 遍历 XDG_DATA_DIRS 中的每个目录
         for data_dir in xdg_data_dirs.split(':') {
             if data_dir.is_empty() {
@@ -250,7 +246,7 @@ impl IconCache {
                 dirs.push(full_path);
             }
         }
-        
+
         // 添加一些额外的 NixOS 特定路径作为后备
         let extra_dirs = [
             "/run/current-system/sw/share/icons/hicolor/48x48/apps",
@@ -260,9 +256,9 @@ impl IconCache {
         for dir in extra_dirs {
             dirs.push(dir.to_string());
         }
-        
+
         tracing::debug!("图标搜索目录数量: {}", dirs.len());
-        
+
         dirs
     }
 
@@ -271,16 +267,16 @@ impl IconCache {
     fn get_desktop_dirs() -> Vec<String> {
         let mut dirs = Vec::new();
         let home = std::env::var("HOME").unwrap_or_default();
-        
+
         // 用户本地目录优先
         if !home.is_empty() {
             dirs.push(format!("{}/.local/share/applications", home));
         }
-        
+
         // 从 XDG_DATA_DIRS 获取数据目录
         let xdg_data_dirs = std::env::var("XDG_DATA_DIRS")
             .unwrap_or_else(|_| "/usr/local/share:/usr/share".to_string());
-        
+
         for data_dir in xdg_data_dirs.split(':') {
             if data_dir.is_empty() {
                 continue;
@@ -288,7 +284,7 @@ impl IconCache {
             let applications_dir = format!("{}/applications", data_dir);
             dirs.push(applications_dir);
         }
-        
+
         // 添加额外的 NixOS 和 Flatpak 路径作为后备
         let extra_dirs = [
             "/run/current-system/sw/share/applications",
@@ -299,7 +295,7 @@ impl IconCache {
                 dirs.push(dir.to_string());
             }
         }
-        
+
         // Flatpak 用户目录
         if !home.is_empty() {
             let flatpak_user = format!("{}/.local/share/flatpak/exports/share/applications", home);
@@ -307,16 +303,16 @@ impl IconCache {
                 dirs.push(flatpak_user);
             }
         }
-        
+
         tracing::debug!(".desktop 搜索目录数量: {}", dirs.len());
-        
+
         dirs
     }
 
     /// 在系统中查找图标
     fn find_icon(&self, app_name: &str) -> Option<PathBuf> {
         let name_lower = app_name.to_lowercase();
-        
+
         let icon_dirs = Self::get_icon_dirs();
 
         // 图标扩展名（按优先级排序，PNG 优先于 SVG 因为加载更快）
@@ -356,9 +352,10 @@ impl IconCache {
                     if file_name_str.contains(&name_lower) {
                         let path = entry.path();
                         if let Some(ext) = path.extension()
-                            && extensions.contains(&ext.to_str().unwrap_or("")) {
-                                return Some(path);
-                            }
+                            && extensions.contains(&ext.to_str().unwrap_or(""))
+                        {
+                            return Some(path);
+                        }
                     }
                 }
             }
@@ -382,16 +379,18 @@ impl IconCache {
                 for entry in entries.flatten() {
                     let path = entry.path();
                     if path.extension().is_some_and(|e| e == "desktop") {
-                        let file_name = path.file_stem()
+                        let file_name = path
+                            .file_stem()
                             .and_then(|s| s.to_str())
                             .unwrap_or("")
                             .to_lowercase();
-                        
+
                         // 检查文件名是否匹配
                         if (file_name.contains(app_name) || app_name.contains(&file_name))
-                            && let Some(icon) = self.parse_desktop_file(&path) {
-                                return Some(icon);
-                            }
+                            && let Some(icon) = self.parse_desktop_file(&path)
+                        {
+                            return Some(icon);
+                        }
                     }
                 }
             }
@@ -403,12 +402,12 @@ impl IconCache {
     /// 解析 .desktop 文件获取图标
     fn parse_desktop_file(&self, path: &PathBuf) -> Option<PathBuf> {
         let content = std::fs::read_to_string(path).ok()?;
-        
+
         let mut icon_name = None;
 
         for line in content.lines() {
             let line = line.trim();
-            
+
             if let Some(stripped) = line.strip_prefix("Icon=") {
                 icon_name = Some(stripped.to_string());
                 break;
@@ -416,7 +415,7 @@ impl IconCache {
         }
 
         let icon_name = icon_name?;
-        
+
         // 如果是绝对路径
         if icon_name.starts_with('/') {
             let path = PathBuf::from(&icon_name);
@@ -441,7 +440,7 @@ impl IconCache {
                 } else {
                     dir_path.join(format!("{}.{}", icon_name, ext))
                 };
-                
+
                 if icon_path.exists() {
                     return Some(icon_path);
                 }
@@ -481,38 +480,15 @@ impl<'a> AppIcon<'a> {
     pub fn show(self, ui: &mut egui::Ui, icon_cache: &mut IconCache) -> egui::Response {
         // 尝试获取纹理
         if let Some(texture) = icon_cache.get_texture(ui.ctx(), self.app_name) {
-            let image = egui::Image::new(&*texture)
-                .fit_to_exact_size(egui::Vec2::splat(self.size));
+            let image = egui::Image::new(&*texture).fit_to_exact_size(egui::Vec2::splat(self.size));
             ui.add(image)
         } else {
-            // 显示文本标签作为后备
-            let label = icon_cache.get_emoji(self.app_name);
-            let (rect, response) = ui.allocate_exact_size(
-                egui::Vec2::splat(self.size),
-                egui::Sense::hover(),
-            );
-            
-            if ui.is_rect_visible(rect) {
-                let painter = ui.painter();
-                
-                // 绘制圆形背景
-                painter.circle_filled(
-                    rect.center(),
-                    self.size / 2.0,
-                    egui::Color32::from_rgb(100, 100, 100),
-                );
-                
-                // 绘制文本
-                painter.text(
-                    rect.center(),
-                    egui::Align2::CENTER_CENTER,
-                    label,
-                    egui::FontId::proportional(self.size * 0.4),
-                    egui::Color32::WHITE,
-                );
-            }
-            
-            response
+            // 使用 egui 内置 emoji 作为后备（避免自定义白色框）
+            let emoji = icon_cache.get_emoji(self.app_name);
+            ui.label(
+                egui::RichText::new(emoji)
+                    .size(self.size)
+            )
         }
     }
 }
@@ -524,18 +500,18 @@ mod tests {
     #[test]
     fn test_get_emoji() {
         let cache = IconCache::new();
-        
-        assert_eq!(cache.get_emoji("code"), "VS");
-        assert_eq!(cache.get_emoji("Firefox"), "FF");
-        assert_eq!(cache.get_emoji("unknown_app"), "AP");
+
+        assert_eq!(cache.get_emoji("code"), "💻");
+        assert_eq!(cache.get_emoji("Firefox"), "🦊");
+        assert_eq!(cache.get_emoji("unknown_app"), "📦");
     }
 
     #[test]
     fn test_partial_match() {
         let cache = IconCache::new();
-        
+
         // 部分匹配测试
-        assert_eq!(cache.get_emoji("Visual Studio Code"), "VS");
-        assert_eq!(cache.get_emoji("Mozilla Firefox"), "FF");
+        assert_eq!(cache.get_emoji("Visual Studio Code"), "💻");
+        assert_eq!(cache.get_emoji("Mozilla Firefox"), "🦊");
     }
 }

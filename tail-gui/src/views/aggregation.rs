@@ -2,8 +2,8 @@
 
 use chrono::{Datelike, Duration, NaiveDate, Timelike};
 use std::collections::HashMap;
-use tail_core::models::{PeriodUsage, TimeNavigationLevel, TimeNavigationState};
 use tail_core::AppUsage;
+use tail_core::models::{PeriodUsage, TimeNavigationLevel, TimeNavigationState};
 
 /// 数据聚合器
 pub struct DataAggregator<'a> {

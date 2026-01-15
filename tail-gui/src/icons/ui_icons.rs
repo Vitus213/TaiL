@@ -1,8 +1,8 @@
 //! TaiL GUI - UI 图标常量
-//! 
+//!
 //! 这些图标使用 egui 默认字体支持的 emoji
 //! 参考: https://docs.rs/egui/latest/egui/special_emojis/index.html
-//! 
+//!
 //! 你可以修改这些常量来自定义 UI 图标
 
 /// 分类视图图标

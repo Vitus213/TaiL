@@ -3,12 +3,12 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use std::time::Instant;
-use tail_core::{DbConfig, Repository, WindowEvent};
-use tail_hyprland::{HyprlandIpc, HyprlandEvent};
 use tail_afk::{AfkDetector, AfkState};
-use tracing::{debug, error, info};
+use tail_core::{DbConfig, Repository, WindowEvent};
+use tail_hyprland::{HyprlandEvent, HyprlandIpc};
 use tokio::sync::mpsc;
 use tokio::time::{interval, Duration};
+use tracing::{debug, error, info};
 
 /// 活动窗口信息
 #[derive(Debug, Clone)]
@@ -66,12 +66,15 @@ impl TailService {
         let ipc = HyprlandIpc::new()?;
         let tx_hyprland = tx.clone();
         tokio::spawn(async move {
-            if let Err(e) = ipc.subscribe_events(move |event| {
-                // 使用 try_send 避免阻塞
-                if let Err(e) = tx_hyprland.try_send(event) {
-                    error!("Failed to send event: {}", e);
-                }
-            }).await {
+            if let Err(e) = ipc
+                .subscribe_events(move |event| {
+                    // 使用 try_send 避免阻塞
+                    if let Err(e) = tx_hyprland.try_send(event) {
+                        error!("Failed to send event: {}", e);
+                    }
+                })
+                .await
+            {
                 error!("Hyprland IPC error: {}", e);
             }
         });
@@ -95,7 +98,7 @@ impl TailService {
                 // 通过通道发送更新信号
                 if let Err(e) = tx_update.try_send(HyprlandEvent::WindowTitleChanged {
                     address: String::new(),
-                    title: String::from("__UPDATE_CURRENT_WINDOW__")
+                    title: String::from("__UPDATE_CURRENT_WINDOW__"),
                 }) {
                     debug!("Failed to send update signal: {}", e);
                 }
@@ -108,13 +111,14 @@ impl TailService {
         // 处理事件
         while let Some(event) = rx.recv().await {
             // 处理定期更新信号
-            if matches!(&event, HyprlandEvent::WindowTitleChanged { title, .. } if title == "__UPDATE_CURRENT_WINDOW__") {
+            if matches!(&event, HyprlandEvent::WindowTitleChanged { title, .. } if title == "__UPDATE_CURRENT_WINDOW__")
+            {
                 if let Err(e) = self.update_current_window_duration().await {
                     error!("Error updating current window duration: {}", e);
                 }
                 continue;
             }
-            
+
             if let Err(e) = self.handle_event(event).await {
                 error!("Error handling event: {}", e);
             }
@@ -128,10 +132,19 @@ impl TailService {
         match event {
             HyprlandEvent::ActiveWindowChanged { class, title } => {
                 info!("Active window changed: {} - {}", class, title);
-                self.record_window_change(class, title, "unknown".to_string()).await?;
+                self.record_window_change(class, title, "unknown".to_string())
+                    .await?;
             }
-            HyprlandEvent::WindowOpened { workspace, class, title, .. } => {
-                debug!("Window opened: {} - {} on workspace {}", class, title, workspace);
+            HyprlandEvent::WindowOpened {
+                workspace,
+                class,
+                title,
+                ..
+            } => {
+                debug!(
+                    "Window opened: {} - {} on workspace {}",
+                    class, title, workspace
+                );
                 // 窗口打开时可能会自动切换，等待 ActiveWindowChanged 事件
             }
             HyprlandEvent::WindowClosed { .. } => {
@@ -179,7 +192,10 @@ impl TailService {
             if duration_secs > 0 {
                 if let Some(event_id) = prev_window.event_id {
                     // 更新已存在的事件
-                    if let Err(e) = self.repo.update_window_event_duration(event_id, duration_secs) {
+                    if let Err(e) = self
+                        .repo
+                        .update_window_event_duration(event_id, duration_secs)
+                    {
                         error!("Failed to update window event duration: {}", e);
                     } else {
                         info!(
@@ -206,7 +222,7 @@ impl TailService {
         match self.repo.insert_window_event(&event) {
             Ok(event_id) => {
                 info!("Inserted new window event: {} (id: {})", app_name, event_id);
-                
+
                 // 更新当前窗口
                 self.current_window = Some(ActiveWindow {
                     app_name,
@@ -244,8 +260,12 @@ impl TailService {
 
             if duration_secs > 0 {
                 if let Some(event_id) = window.event_id {
-                    self.repo.update_window_event_duration(event_id, duration_secs)?;
-                    debug!("Updated current window duration: {} ({} seconds)", window.app_name, duration_secs);
+                    self.repo
+                        .update_window_event_duration(event_id, duration_secs)?;
+                    debug!(
+                        "Updated current window duration: {} ({} seconds)",
+                        window.app_name, duration_secs
+                    );
                 }
             }
         }
@@ -260,8 +280,12 @@ impl TailService {
                 .as_secs() as i64;
 
             if let Some(event_id) = window.event_id {
-                self.repo.update_window_event_duration(event_id, duration_secs)?;
-                info!("Flushed current window: {} ({} seconds)", window.app_name, duration_secs);
+                self.repo
+                    .update_window_event_duration(event_id, duration_secs)?;
+                info!(
+                    "Flushed current window: {} ({} seconds)",
+                    window.app_name, duration_secs
+                );
             }
         }
         Ok(())
@@ -280,13 +304,12 @@ pub fn service_main() {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into())
+                .add_directive(tracing::Level::INFO.into()),
         )
         .init();
 
     // 创建 runtime
-    let rt = tokio::runtime::Runtime::new()
-        .expect("Failed to create tokio runtime");
+    let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
 
     rt.block_on(async {
         if let Err(e) = run_service().await {
@@ -301,7 +324,7 @@ async fn run_service() -> anyhow::Result<()> {
     info!("Starting TaiL Service...");
 
     let service = TailService::new()?;
-    
+
     // 直接运行服务，Ctrl+C 会自动终止进程
     service.run().await?;
 

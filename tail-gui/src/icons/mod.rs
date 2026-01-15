@@ -5,5 +5,5 @@
 pub mod cache;
 pub mod ui_icons;
 
-pub use cache::{IconCache, AppIcon};
+pub use cache::{AppIcon, IconCache};
 pub use ui_icons::*;

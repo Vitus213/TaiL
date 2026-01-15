@@ -1,6 +1,6 @@
 //! TaiL GUI - 设置视图
 
-use egui::{ScrollArea, Ui, Color32, Vec2, Rounding};
+use egui::{Color32, Rounding, ScrollArea, Ui, Vec2};
 use tail_core::{DailyGoal, DbConfig};
 
 use crate::components::{PageHeader, SectionDivider};
@@ -24,6 +24,8 @@ pub enum SettingsAction {
     DeleteGoal(String),
     /// 切换主题
     ChangeTheme(ThemeType),
+    /// 管理别名
+    ManageAliases,
     /// 无操作
     None,
 }
@@ -46,9 +48,8 @@ impl<'a> SettingsView<'a> {
         let mut action = SettingsAction::None;
 
         // 页面标题
-        ui.add(PageHeader::new("设置", "⚙", self.theme)
-            .subtitle("自定义您的 TaiL 体验"));
-        
+        ui.add(PageHeader::new("设置", "⚙", self.theme).subtitle("自定义您的 TaiL 体验"));
+
         ui.add_space(self.theme.spacing);
 
         ScrollArea::vertical()
@@ -57,7 +58,7 @@ impl<'a> SettingsView<'a> {
                 // 主题设置
                 ui.add(SectionDivider::new(self.theme).with_title("外观"));
                 ui.add_space(self.theme.spacing / 2.0);
-                
+
                 if let Some(new_theme) = self.show_theme_settings(ui) {
                     action = SettingsAction::ChangeTheme(new_theme);
                 }
@@ -67,10 +68,27 @@ impl<'a> SettingsView<'a> {
                 // 每日目标设置
                 ui.add(SectionDivider::new(self.theme).with_title("每日目标"));
                 ui.add_space(self.theme.spacing / 2.0);
-                
+
                 if let Some(goal_action) = self.show_goal_settings(ui) {
                     action = goal_action;
                 }
+
+                ui.add_space(self.theme.spacing);
+
+                // 应用别名设置
+                ui.add(SectionDivider::new(self.theme).with_title("应用别名"));
+                ui.add_space(self.theme.spacing / 2.0);
+
+                if ui.button("📝 管理应用别名").clicked() {
+                    action = SettingsAction::ManageAliases;
+                }
+
+                ui.add_space(4.0);
+                ui.label(
+                    egui::RichText::new("为应用设置友好的名称，让统计数据更易读")
+                        .size(self.theme.small_size)
+                        .color(self.theme.secondary_text_color),
+                );
 
                 ui.add_space(self.theme.spacing);
 
@@ -96,7 +114,7 @@ impl<'a> SettingsView<'a> {
 
         // 主题卡片容器
         let card_width = ui.available_width();
-        
+
         ui.allocate_ui_with_layout(
             Vec2::new(card_width, 80.0),
             egui::Layout::left_to_right(egui::Align::Center),
@@ -114,19 +132,20 @@ impl<'a> SettingsView<'a> {
 
                 ui.vertical(|ui| {
                     ui.add_space(8.0);
-                    ui.label(egui::RichText::new("主题")
-                        .size(self.theme.body_size)
-                        .color(self.theme.text_color));
-                    
+                    ui.label(
+                        egui::RichText::new("主题")
+                            .size(self.theme.body_size)
+                            .color(self.theme.text_color),
+                    );
+
                     ui.add_space(8.0);
-                    
+
                     ui.horizontal(|ui| {
                         for theme_type in ThemeType::all() {
                             let is_selected = *theme_type == self.current_theme_type;
-                            
+
                             let button = egui::Button::new(
-                                egui::RichText::new(theme_type.name())
-                                    .size(self.theme.small_size)
+                                egui::RichText::new(theme_type.name()).size(self.theme.small_size),
                             )
                             .fill(if is_selected {
                                 self.theme.primary_color
@@ -155,16 +174,22 @@ impl<'a> SettingsView<'a> {
         if self.daily_goals.is_empty() {
             ui.vertical_centered(|ui| {
                 ui.add_space(20.0);
-                ui.label(egui::RichText::new("🎯")
-                    .size(32.0)
-                    .color(self.theme.secondary_text_color.linear_multiply(0.5)));
+                ui.label(
+                    egui::RichText::new("🎯")
+                        .size(32.0)
+                        .color(self.theme.secondary_text_color.linear_multiply(0.5)),
+                );
                 ui.add_space(8.0);
-                ui.label(egui::RichText::new("暂无每日目标")
-                    .size(self.theme.body_size)
-                    .color(self.theme.text_color));
-                ui.label(egui::RichText::new("添加目标来追踪您的应用使用时间")
-                    .size(self.theme.small_size)
-                    .color(self.theme.secondary_text_color));
+                ui.label(
+                    egui::RichText::new("暂无每日目标")
+                        .size(self.theme.body_size)
+                        .color(self.theme.text_color),
+                );
+                ui.label(
+                    egui::RichText::new("添加目标来追踪您的应用使用时间")
+                        .size(self.theme.small_size)
+                        .color(self.theme.secondary_text_color),
+                );
                 ui.add_space(20.0);
             });
         } else {
@@ -188,25 +213,35 @@ impl<'a> SettingsView<'a> {
                             ui.vertical(|ui| {
                                 ui.add_space(8.0);
                                 ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("🎯")
-                                        .size(16.0));
-                                    ui.label(egui::RichText::new(&goal.app_name)
-                                        .size(self.theme.body_size)
-                                        .color(self.theme.text_color));
+                                    ui.label(egui::RichText::new("🎯").size(16.0));
+                                    ui.label(
+                                        egui::RichText::new(&goal.app_name)
+                                            .size(self.theme.body_size)
+                                            .color(self.theme.text_color),
+                                    );
                                 });
-                                ui.label(egui::RichText::new(format!("最多 {} 分钟/天", goal.max_minutes))
+                                ui.label(
+                                    egui::RichText::new(format!(
+                                        "最多 {} 分钟/天",
+                                        goal.max_minutes
+                                    ))
                                     .size(self.theme.small_size)
-                                    .color(self.theme.secondary_text_color));
+                                    .color(self.theme.secondary_text_color),
+                                );
                             });
                         },
                     );
 
                     // 删除按钮
-                    if ui.add(
-                        egui::Button::new(egui::RichText::new("🗑").size(16.0))
-                            .fill(Color32::TRANSPARENT)
-                            .rounding(Rounding::same(4.0))
-                    ).on_hover_text("删除目标").clicked() {
+                    if ui
+                        .add(
+                            egui::Button::new(egui::RichText::new("🗑").size(16.0))
+                                .fill(Color32::TRANSPARENT)
+                                .rounding(Rounding::same(4.0)),
+                        )
+                        .on_hover_text("删除目标")
+                        .clicked()
+                    {
                         action = Some(SettingsAction::DeleteGoal(goal.app_name.clone()));
                     }
                 });
@@ -218,15 +253,15 @@ impl<'a> SettingsView<'a> {
         ui.add_space(self.theme.spacing / 2.0);
 
         // 添加目标按钮
-        if ui.add(
-            egui::Button::new(
-                egui::RichText::new("➕ 添加新目标")
-                    .size(self.theme.body_size)
+        if ui
+            .add(
+                egui::Button::new(egui::RichText::new("➕ 添加新目标").size(self.theme.body_size))
+                    .fill(self.theme.primary_color)
+                    .rounding(Rounding::same(8.0))
+                    .min_size(Vec2::new(150.0, 36.0)),
             )
-            .fill(self.theme.primary_color)
-            .rounding(Rounding::same(8.0))
-            .min_size(Vec2::new(150.0, 36.0))
-        ).clicked() {
+            .clicked()
+        {
             action = Some(SettingsAction::AddGoal);
         }
 
@@ -255,17 +290,23 @@ impl<'a> SettingsView<'a> {
                 ui.vertical(|ui| {
                     ui.add_space(8.0);
                     ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new("💾")
-                            .size(16.0)
-                            .family(egui::FontFamily::Proportional));
-                        ui.label(egui::RichText::new("数据库位置")
-                            .size(self.theme.body_size)
-                            .color(self.theme.text_color));
+                        ui.label(
+                            egui::RichText::new("💾")
+                                .size(16.0)
+                                .family(egui::FontFamily::Proportional),
+                        );
+                        ui.label(
+                            egui::RichText::new("数据库位置")
+                                .size(self.theme.body_size)
+                                .color(self.theme.text_color),
+                        );
                     });
                     ui.add_space(4.0);
-                    ui.label(egui::RichText::new(&config.path)
-                        .size(self.theme.small_size)
-                        .color(self.theme.secondary_text_color));
+                    ui.label(
+                        egui::RichText::new(&config.path)
+                            .size(self.theme.small_size)
+                            .color(self.theme.secondary_text_color),
+                    );
                 });
             },
         );
@@ -274,25 +315,28 @@ impl<'a> SettingsView<'a> {
 
         // 数据操作按钮
         ui.horizontal(|ui| {
-            if ui.add(
-                egui::Button::new(
-                    egui::RichText::new("导出数据")
-                        .size(self.theme.small_size)
+            if ui
+                .add(
+                    egui::Button::new(egui::RichText::new("导出数据").size(self.theme.small_size))
+                        .rounding(Rounding::same(6.0)),
                 )
-                .rounding(Rounding::same(6.0))
-            ).clicked() {
+                .clicked()
+            {
                 // TODO: 实现数据导出
             }
 
-            if ui.add(
-                egui::Button::new(
-                    egui::RichText::new("清除数据")
-                        .size(self.theme.small_size)
-                        .color(self.theme.danger_color)
+            if ui
+                .add(
+                    egui::Button::new(
+                        egui::RichText::new("清除数据")
+                            .size(self.theme.small_size)
+                            .color(self.theme.danger_color),
+                    )
+                    .fill(Color32::TRANSPARENT)
+                    .rounding(Rounding::same(6.0)),
                 )
-                .fill(Color32::TRANSPARENT)
-                .rounding(Rounding::same(6.0))
-            ).clicked() {
+                .clicked()
+            {
                 // TODO: 实现数据清除（需要确认对话框）
             }
         });
@@ -316,28 +360,36 @@ impl<'a> SettingsView<'a> {
 
                 ui.vertical(|ui| {
                     ui.add_space(12.0);
-                    
+
                     ui.horizontal(|ui| {
                         ui.vertical(|ui| {
-                            ui.label(egui::RichText::new("TaiL")
-                                .size(self.theme.heading_size)
-                                .color(self.theme.text_color));
-                            ui.label(egui::RichText::new("时间追踪工具")
-                                .size(self.theme.small_size)
-                                .color(self.theme.secondary_text_color));
+                            ui.label(
+                                egui::RichText::new("TaiL")
+                                    .size(self.theme.heading_size)
+                                    .color(self.theme.text_color),
+                            );
+                            ui.label(
+                                egui::RichText::new("时间追踪工具")
+                                    .size(self.theme.small_size)
+                                    .color(self.theme.secondary_text_color),
+                            );
                         });
                     });
 
                     ui.add_space(12.0);
 
-                    ui.label(egui::RichText::new("版本 0.1.0")
-                        .size(self.theme.small_size)
-                        .color(self.theme.secondary_text_color));
-                    
-                    ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new("专为 Linux/Wayland (Hyprland) 设计")
+                    ui.label(
+                        egui::RichText::new("版本 0.1.0")
                             .size(self.theme.small_size)
-                            .color(self.theme.secondary_text_color));
+                            .color(self.theme.secondary_text_color),
+                    );
+
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            egui::RichText::new("专为 Linux/Wayland (Hyprland) 设计")
+                                .size(self.theme.small_size)
+                                .color(self.theme.secondary_text_color),
+                        );
                     });
 
                     ui.add_space(8.0);
@@ -414,22 +466,25 @@ impl AddGoalDialog {
 
                 ui.add_space(8.0);
 
-                ui.label(egui::RichText::new("应用名称")
-                    .size(theme.small_size)
-                    .color(theme.secondary_text_color));
+                ui.label(
+                    egui::RichText::new("应用名称")
+                        .size(theme.small_size)
+                        .color(theme.secondary_text_color),
+                );
                 ui.add(
                     egui::TextEdit::singleline(&mut self.app_name)
                         .hint_text("例如: firefox, code")
-                        .desired_width(f32::INFINITY)
+                        .desired_width(f32::INFINITY),
                 );
 
                 ui.add_space(12.0);
 
-                ui.label(egui::RichText::new("每日最大使用时间（分钟）")
-                    .size(theme.small_size)
-                    .color(theme.secondary_text_color));
-                ui.add(egui::Slider::new(&mut self.max_minutes, 1..=480)
-                    .suffix(" 分钟"));
+                ui.label(
+                    egui::RichText::new("每日最大使用时间（分钟）")
+                        .size(theme.small_size)
+                        .color(theme.secondary_text_color),
+                );
+                ui.add(egui::Slider::new(&mut self.max_minutes, 1..=480).suffix(" 分钟"));
 
                 // 时间预览
                 let hours = self.max_minutes / 60;
@@ -439,30 +494,38 @@ impl AddGoalDialog {
                 } else {
                     format!("= {} 分钟", mins)
                 };
-                ui.label(egui::RichText::new(time_str)
-                    .size(theme.small_size)
-                    .color(theme.secondary_text_color));
+                ui.label(
+                    egui::RichText::new(time_str)
+                        .size(theme.small_size)
+                        .color(theme.secondary_text_color),
+                );
 
                 ui.add_space(16.0);
 
                 ui.horizontal(|ui| {
-                    if ui.add(
-                        egui::Button::new("取消")
-                            .fill(theme.card_hover_background)
-                            .min_size(Vec2::new(80.0, 32.0))
-                    ).clicked() {
+                    if ui
+                        .add(
+                            egui::Button::new("取消")
+                                .fill(theme.card_hover_background)
+                                .min_size(Vec2::new(80.0, 32.0)),
+                        )
+                        .clicked()
+                    {
                         should_close = true;
                     }
 
                     ui.add_space(8.0);
 
                     let can_add = !self.app_name.trim().is_empty();
-                    if ui.add_enabled(
-                        can_add,
-                        egui::Button::new("确定")
-                            .fill(theme.primary_color)
-                            .min_size(Vec2::new(80.0, 32.0))
-                    ).clicked() {
+                    if ui
+                        .add_enabled(
+                            can_add,
+                            egui::Button::new("确定")
+                                .fill(theme.primary_color)
+                                .min_size(Vec2::new(80.0, 32.0)),
+                        )
+                        .clicked()
+                    {
                         result = Some(DailyGoal {
                             id: None,
                             app_name: self.app_name.trim().to_string(),

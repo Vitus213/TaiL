@@ -84,14 +84,15 @@ mod tests {
     #[test]
     fn test_new_detector_is_active() {
         let detector = AfkDetector::new(5);
-        assert_eq!(detector.current_state(), AfkState::Active);assert!(!detector.is_afk());
+        assert_eq!(detector.current_state(), AfkState::Active);
+        assert!(!detector.is_afk());
     }
 
     #[test]
     fn test_record_activity() {
         let mut detector = AfkDetector::new(5);
         thread::sleep(Duration::from_secs(1));
-        
+
         detector.record_activity();
         assert_eq!(detector.current_state(), AfkState::Active);
     }
@@ -99,10 +100,10 @@ mod tests {
     #[test]
     fn test_afk_timeout() {
         let mut detector = AfkDetector::new(1); // 1秒超时
-        
+
         // 等待超时
         thread::sleep(Duration::from_secs(2));
-        
+
         let state = detector.check_state();
         assert!(matches!(state, AfkState::Afk { .. }));
         assert!(detector.is_afk());
@@ -111,12 +112,12 @@ mod tests {
     #[test]
     fn test_return_from_afk() {
         let mut detector = AfkDetector::new(1);
-        
+
         // 进入 AFK 状态
         thread::sleep(Duration::from_secs(2));
         detector.check_state();
         assert!(detector.is_afk());
-        
+
         // 记录活动，应该回到活跃状态
         detector.record_activity();
         assert_eq!(detector.current_state(), AfkState::Active);
@@ -126,14 +127,14 @@ mod tests {
     #[test]
     fn test_check_state_updates_status() {
         let mut detector = AfkDetector::new(1);
-        
+
         // 初始是活跃的
         assert!(!detector.is_afk());
-        
+
         // 等待超时
         thread::sleep(Duration::from_secs(2));
         detector.check_state();
-        
+
         // 现在应该是 AFK
         assert!(detector.is_afk());
     }

@@ -26,7 +26,12 @@ pub enum HyprlandEvent {
     ActiveWindowChanged { class: String, title: String },
 
     /// 窗口打开
-    WindowOpened { address: String, workspace: String, class: String, title: String },
+    WindowOpened {
+        address: String,
+        workspace: String,
+        class: String,
+        title: String,
+    },
 
     /// 窗口关闭
     WindowClosed { address: String },
@@ -46,11 +51,10 @@ pub struct HyprlandIpc {
 impl HyprlandIpc {
     /// 创建新的 IPC 客户端
     pub fn new() -> Result<Self, IpcError> {
-        let instance_signature = std::env::var("HYPRLAND_INSTANCE_SIGNATURE")
-            .map_err(|_| IpcError::SocketNotFound)?;
+        let instance_signature =
+            std::env::var("HYPRLAND_INSTANCE_SIGNATURE").map_err(|_| IpcError::SocketNotFound)?;
 
-        let xdg_runtime = std::env::var("XDG_RUNTIME_DIR")
-            .unwrap_or_else(|_| "/tmp".to_string());
+        let xdg_runtime = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
 
         let socket_path = PathBuf::from(format!(
             "{}/hypr/{}/.socket2.sock",
@@ -129,16 +133,12 @@ impl HyprlandIpc {
                     None
                 }
             }
-            "closewindow" => {
-                Some(HyprlandEvent::WindowClosed {
-                    address: data.to_string(),
-                })
-            }
-            "workspace" | "workspacev2" => {
-                Some(HyprlandEvent::WorkspaceChanged {
-                    name: data.to_string(),
-                })
-            }
+            "closewindow" => Some(HyprlandEvent::WindowClosed {
+                address: data.to_string(),
+            }),
+            "workspace" | "workspacev2" => Some(HyprlandEvent::WorkspaceChanged {
+                name: data.to_string(),
+            }),
             "windowtitle" => {
                 // windowtitle 事件只有 window address
                 // 实际标题需要通过 hyprctl 查询，这里暂时返回空标题
@@ -199,7 +199,12 @@ mod tests {
 
         assert!(event.is_some());
         match event.unwrap() {
-            HyprlandEvent::WindowOpened { address, workspace, class, title } => {
+            HyprlandEvent::WindowOpened {
+                address,
+                workspace,
+                class,
+                title,
+            } => {
                 assert_eq!(address, "0x12345");
                 assert_eq!(workspace, "1");
                 assert_eq!(class, "kitty");

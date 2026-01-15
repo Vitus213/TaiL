@@ -1,6 +1,6 @@
 //! TaiL GUI - 头部组件
 
-use egui::{Color32, Pos2, Rect, Response, Rounding, Sense, Ui, Vec2, Widget};
+use egui::{Color32, Pos2, Response, Rounding, Sense, Ui, Vec2, Widget};
 
 use crate::theme::TaiLTheme;
 
@@ -18,6 +18,8 @@ pub struct StatCard<'a> {
     theme: &'a TaiLTheme,
     /// 强调色（可选）
     accent_color: Option<Color32>,
+    /// 是否使用大尺寸
+    large_size: bool,
 }
 
 impl<'a> StatCard<'a> {
@@ -29,6 +31,7 @@ impl<'a> StatCard<'a> {
             icon,
             theme,
             accent_color: None,
+            large_size: false,
         }
     }
 
@@ -37,15 +40,29 @@ impl<'a> StatCard<'a> {
         self
     }
 
+    pub fn with_subtitle_option(mut self, subtitle: Option<&'a str>) -> Self {
+        self.subtitle = subtitle;
+        self
+    }
+
     pub fn accent_color(mut self, color: Color32) -> Self {
         self.accent_color = Some(color);
+        self
+    }
+
+    pub fn large_size(mut self, large: bool) -> Self {
+        self.large_size = large;
         self
     }
 }
 
 impl<'a> Widget for StatCard<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
-        let desired_size = Vec2::new(180.0, 100.0);
+        let desired_size = if self.large_size {
+            Vec2::new(200.0, 110.0)
+        } else {
+            Vec2::new(180.0, 100.0)
+        };
         let (rect, response) = ui.allocate_exact_size(desired_size, Sense::hover());
 
         if ui.is_rect_visible(rect) {
@@ -67,39 +84,24 @@ impl<'a> Widget for StatCard<'a> {
                 Color32::from_black_alpha(20),
             );
 
-            painter.rect_filled(
-                rect,
-                Rounding::same(self.theme.card_rounding),
-                bg_color,
-            );
+            painter.rect_filled(rect, Rounding::same(self.theme.card_rounding), bg_color);
 
             let content_rect = rect.shrink(padding);
             let accent = self.accent_color.unwrap_or(self.theme.primary_color);
 
-            // 图标背景
-            let icon_size = 36.0;
-            let icon_rect = Rect::from_min_size(
-                content_rect.min,
-                Vec2::splat(icon_size),
-            );
-            painter.rect_filled(
-                icon_rect,
-                Rounding::same(8.0),
-                accent.linear_multiply(0.2),
-            );
-
-            // 图标
+            // 图标（直接显示 emoji，不绘制背景）
+            let icon_font_size = if self.large_size { 26.0 } else { 22.0 };
             painter.text(
-                icon_rect.center(),
-                egui::Align2::CENTER_CENTER,
+                Pos2::new(content_rect.min.x, content_rect.min.y + 4.0),
+                egui::Align2::LEFT_TOP,
                 self.icon,
-                egui::FontId::proportional(20.0),
+                egui::FontId::proportional(icon_font_size),
                 accent,
             );
 
             // 标题
             painter.text(
-                Pos2::new(content_rect.min.x, icon_rect.max.y + 8.0),
+                Pos2::new(content_rect.min.x + 36.0, content_rect.min.y + 6.0),
                 egui::Align2::LEFT_TOP,
                 self.title,
                 egui::FontId::proportional(self.theme.small_size),
@@ -107,11 +109,16 @@ impl<'a> Widget for StatCard<'a> {
             );
 
             // 主要值
+            let value_font_size = if self.large_size {
+                self.theme.heading_size * 1.2
+            } else {
+                self.theme.heading_size
+            };
             painter.text(
-                Pos2::new(content_rect.min.x, icon_rect.max.y + 26.0),
+                Pos2::new(content_rect.min.x + 36.0, content_rect.min.y + 24.0),
                 egui::Align2::LEFT_TOP,
                 self.value,
-                egui::FontId::proportional(self.theme.heading_size),
+                egui::FontId::proportional(value_font_size),
                 self.theme.text_color,
             );
 
@@ -214,10 +221,7 @@ pub struct SectionDivider<'a> {
 
 impl<'a> SectionDivider<'a> {
     pub fn new(theme: &'a TaiLTheme) -> Self {
-        Self {
-            title: None,
-            theme,
-        }
+        Self { title: None, theme }
     }
 
     pub fn with_title(mut self, title: &'a str) -> Self {
@@ -237,11 +241,11 @@ impl<'a> Widget for SectionDivider<'a> {
             let line_y = rect.center().y;
 
             if let Some(title) = self.title {
-                // 带标题的分隔线
+                // 带标题的分隔线（加粗）
                 let text_galley = painter.layout_no_wrap(
                     title.to_string(),
-                    egui::FontId::proportional(self.theme.small_size),
-                    self.theme.secondary_text_color,
+                    egui::FontId::proportional(self.theme.body_size),
+                    self.theme.text_color,
                 );
                 let text_width = text_galley.rect.width();
                 let text_x = rect.center().x - text_width / 2.0;
@@ -259,7 +263,7 @@ impl<'a> Widget for SectionDivider<'a> {
                 painter.galley(
                     Pos2::new(text_x, rect.min.y + 8.0),
                     text_galley,
-                    self.theme.secondary_text_color,
+                    self.theme.text_color,
                 );
 
                 // 右边线
@@ -273,10 +277,7 @@ impl<'a> Widget for SectionDivider<'a> {
             } else {
                 // 简单分隔线
                 painter.line_segment(
-                    [
-                        Pos2::new(rect.min.x, line_y),
-                        Pos2::new(rect.max.x, line_y),
-                    ],
+                    [Pos2::new(rect.min.x, line_y), Pos2::new(rect.max.x, line_y)],
                     egui::Stroke::new(1.0, self.theme.divider_color),
                 );
             }
