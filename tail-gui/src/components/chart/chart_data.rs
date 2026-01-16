@@ -4,7 +4,7 @@
 
 use chrono::{DateTime, Datelike, Local, Timelike, Utc};
 use std::collections::HashMap;
-use tail_core::{AppUsage, Repository};
+use tail_core::AppUsage;
 
 /// 时间粒度
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -139,7 +139,6 @@ impl ChartData {
 /// 图表数据构建器
 pub struct ChartDataBuilder<'a> {
     app_usage: &'a [AppUsage],
-    repository: Option<&'a Repository>,
     start: DateTime<Utc>,
     end: DateTime<Utc>,
     granularity: ChartTimeGranularity,
@@ -151,18 +150,12 @@ impl<'a> ChartDataBuilder<'a> {
     pub fn new(app_usage: &'a [AppUsage]) -> Self {
         Self {
             app_usage,
-            repository: None,
             start: DateTime::default(),
             end: DateTime::default(),
             granularity: ChartTimeGranularity::Day,
             group_mode: ChartGroupMode::ByApp,
             category_cache: HashMap::new(),
         }
-    }
-
-    pub fn with_repository(mut self, repo: &'a Repository) -> Self {
-        self.repository = Some(repo);
-        self
     }
 
     pub fn with_time_range(mut self, start: DateTime<Utc>, end: DateTime<Utc>) -> Self {
@@ -201,9 +194,7 @@ impl<'a> ChartDataBuilder<'a> {
     pub fn build(mut self) -> ChartData {
         // 如果是按分类分组，先加载分类信息
         if self.group_mode == ChartGroupMode::ByCategory {
-            if let Some(repo) = self.repository {
-                self.load_categories(repo);
-            }
+            self.load_categories();
         }
 
         match self.granularity {
@@ -215,18 +206,10 @@ impl<'a> ChartDataBuilder<'a> {
         }
     }
 
-    fn load_categories(&mut self, repo: &Repository) {
+    fn load_categories(&mut self) {
+        // 不再从数据库加载分类信息
+        // 分类缓存将保持为空，应用将显示为"未分类"
         self.category_cache.clear();
-        for usage in self.app_usage {
-            let app_name = &usage.app_name;
-            if !app_name.is_empty() {
-                if let Ok(categories) = repo.get_app_categories(app_name) {
-                    let category_names: Vec<String> =
-                        categories.iter().map(|c| c.name.clone()).collect();
-                    self.category_cache.insert(app_name.clone(), category_names);
-                }
-            }
-        }
     }
 
     /// 获取应用所属的分类名称

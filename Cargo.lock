@@ -3244,6 +3244,7 @@ name = "tail-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "chrono",
  "r2d2",
  "r2d2_sqlite",
@@ -3251,6 +3252,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+ "tokio",
  "tracing",
  "tracing-subscriber",
 ]

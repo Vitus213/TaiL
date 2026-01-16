@@ -1,7 +1,8 @@
 //! TaiL GUI - 设置视图
 
 use egui::{Color32, Rounding, ScrollArea, Ui, Vec2};
-use tail_core::{DailyGoal, DbConfig};
+use tail_core::DailyGoal;
+use tail_core::db::Config as DbConfig;
 
 use crate::components::{PageHeader, SectionDivider};
 use crate::theme::{TaiLTheme, ThemeType};

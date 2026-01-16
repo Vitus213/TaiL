@@ -68,7 +68,7 @@ pub enum TimeNavigationLevel {
 }
 
 /// 时间导航状态
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TimeNavigationState {
     /// 当前导航层级
     pub level: TimeNavigationLevel,

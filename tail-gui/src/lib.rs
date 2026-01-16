@@ -7,6 +7,8 @@ pub mod app;
 pub mod components;
 pub mod fonts;
 pub mod icons;
+pub mod services;
+pub mod store;
 pub mod theme;
 pub mod utils;
 pub mod views;

@@ -3,15 +3,17 @@
 use chrono::{DateTime, Datelike, Duration as ChronoDuration, Local, Utc};
 use std::sync::Arc;
 use tail_core::models::{TimeNavigationState, TimeRange};
-use tail_core::{AppUsage, DailyGoal, DbConfig, Repository};
+use tail_core::{AppUsage, DailyGoal, Repository};
+use tail_core::db::Config as DbConfig;
+use tail_core::traits::{AppUsageQuery, DailyGoalRepository, AliasRepository, CategoryRepository, CategoryUsageQuery};
 use tracing::{debug, info, warn};
 
 use crate::components::{AliasDialog, NavigationMode, SidebarNav, TopTabNav, View};
 use crate::icons::IconCache;
 use crate::theme::{TaiLTheme, ThemeType};
 use crate::views::{
-    AddGoalDialog, CategoriesView, DashboardView, DetailsView, SettingsAction, SettingsView,
-    StatisticsView,
+    AddGoalDialog, CategoriesView, CategoryAction, DashboardView, DetailsView,
+    SettingsAction, SettingsView, StatisticsView,
 };
 
 /// TaiL GUI 应用
@@ -30,6 +32,9 @@ pub struct TaiLApp {
 
     /// 数据库仓库
     repo: Arc<Repository>,
+
+    /// Tokio runtime（用于处理异步数据库调用）
+    runtime: tokio::runtime::Runtime,
 
     /// 仪表板数据缓存（固定为今天）
     dashboard_usage_cache: Vec<AppUsage>,
@@ -91,6 +96,9 @@ impl TaiLApp {
 
         let repo = Repository::new(&config).expect("Failed to initialize database");
 
+        // 创建 tokio runtime 用于异步数据库调用
+        let runtime = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
+
         tracing::info!("TaiL GUI 应用初始化成功");
 
         let theme_type = ThemeType::default();
@@ -106,6 +114,7 @@ impl TaiLApp {
             navigation_state,
             stats_use_stacked_view: false,
             repo: Arc::new(repo),
+            runtime,
             dashboard_usage_cache: Vec::new(),
             stats_usage_cache: Vec::new(),
             daily_goals_cache: Vec::new(),
@@ -146,7 +155,10 @@ impl TaiLApp {
             .unwrap()
             .with_timezone(&Utc);
 
-        match self.repo.get_app_usage(today_start, now) {
+        // 使用 tokio runtime 处理异步调用
+        match self.runtime.block_on(async {
+            AppUsageQuery::get_app_usage(&self.repo.usage_service(), today_start, now).await
+        }) {
             Ok(usage) => {
                 tracing::debug!("仪表板获取 {} 条应用使用记录", usage.len());
                 self.dashboard_usage_cache = usage;
@@ -157,7 +169,9 @@ impl TaiLApp {
         }
 
         // 刷新每日目标
-        match self.repo.get_daily_goals() {
+        match self.runtime.block_on(async {
+            DailyGoalRepository::get_all(&self.repo.goal_service()).await
+        }) {
             Ok(goals) => {
                 self.daily_goals_cache = goals;
             }
@@ -188,7 +202,10 @@ impl TaiLApp {
             "刷新统计数据"
         );
 
-        match self.repo.get_app_usage(start, end) {
+        // 使用 tokio runtime 处理异步调用
+        match self.runtime.block_on(async {
+            AppUsageQuery::get_app_usage(&self.repo.usage_service(), start, end).await
+        }) {
             Ok(usage) => {
                 debug!(
                     count = usage.len(),
@@ -297,14 +314,18 @@ impl TaiLApp {
 
     /// 添加每日目标
     fn add_daily_goal(&mut self, goal: DailyGoal) {
-        if self.repo.upsert_daily_goal(&goal).is_ok() {
-            self.daily_goals_cache.push(goal);
-        }
+        let _ = self.runtime.block_on(async {
+            DailyGoalRepository::upsert(&self.repo.goal_service(), &goal).await
+        });
+        self.daily_goals_cache.push(goal);
     }
 
     /// 删除每日目标
     fn delete_daily_goal(&mut self, app_name: &str) {
-        if let Ok(()) = self.repo.delete_daily_goal(app_name) {
+        let app_name = app_name.to_string();
+        if self.runtime.block_on(async {
+            DailyGoalRepository::delete(&self.repo.goal_service(), &app_name).await
+        }).is_ok() {
             self.daily_goals_cache.retain(|g| g.app_name != app_name);
         }
     }
@@ -313,16 +334,93 @@ impl TaiLApp {
     fn set_app_alias(&mut self, app_name: String, alias: String) {
         if alias.is_empty() {
             // 删除别名
-            let _ = self.repo.delete_app_alias(&app_name);
+            let _ = self.runtime.block_on(async {
+                AliasRepository::delete(&self.repo.aliases(), &app_name).await
+            });
         } else {
-            let _ = self.repo.set_app_alias(&app_name, &alias);
+            let _ = self.runtime.block_on(async {
+                AliasRepository::set(&self.repo.aliases(), &app_name, &alias).await
+            });
         }
     }
 
     /// 打开别名管理对话框
     fn open_alias_management(&mut self) {
-        if let Ok(aliases) = self.repo.get_all_aliases() {
+        if let Ok(aliases) = self.runtime.block_on(async {
+            AliasRepository::get_all(&self.repo.aliases()).await
+        }) {
             self.alias_dialog.open_for_management(aliases);
+        }
+    }
+
+    /// 加载分类页面数据
+    fn load_categories_data(&mut self, start: DateTime<Utc>, end: DateTime<Utc>) {
+        // 加载分类使用统计
+        let category_usage: Vec<tail_core::CategoryUsage> = self
+            .runtime
+            .block_on(async {
+                CategoryUsageQuery::get_category_usage(&self.repo.usage_service(), start, end).await
+            })
+            .unwrap_or_default();
+
+        // 加载所有分类
+        let categories = self
+            .runtime
+            .block_on(async { CategoryRepository::get_all(&self.repo.category_service()).await })
+            .unwrap_or_default();
+
+        // 加载所有应用名称
+        let all_apps = self
+            .runtime
+            .block_on(async { CategoryRepository::get_all_app_names(&self.repo.category_service()).await })
+            .unwrap_or_default();
+
+        // 加载应用使用数据（用于堆叠柱形图）
+        let app_usage = self
+            .runtime
+            .block_on(async { AppUsageQuery::get_app_usage(&self.repo.usage_service(), start, end).await })
+            .unwrap_or_default();
+
+        // 将数据加载到视图
+        self.categories_view.load_data(category_usage, categories, all_apps, app_usage);
+    }
+
+    /// 处理分类视图操作
+    fn handle_category_action(&mut self, action: CategoryAction) {
+        match action {
+            CategoryAction::AddCategory(category) => {
+                let _ = self.runtime.block_on(async {
+                    CategoryRepository::insert(&self.repo.category_service(), &category).await
+                });
+            }
+            CategoryAction::UpdateCategory(category) => {
+                let _ = self.runtime.block_on(async {
+                    CategoryRepository::update(&self.repo.category_service(), &category).await
+                });
+            }
+            CategoryAction::DeleteCategory(id) => {
+                let _ = self.runtime.block_on(async {
+                    CategoryRepository::delete(&self.repo.category_service(), id).await
+                });
+            }
+            CategoryAction::SetAppCategories(app_name, category_ids) => {
+                let _ = self.runtime.block_on(async {
+                    CategoryRepository::set_app_categories(&self.repo.category_service(), &app_name, &category_ids).await
+                });
+            }
+            CategoryAction::RemoveAppFromCategory(app_name, category_id) => {
+                let _ = self.runtime.block_on(async {
+                    CategoryRepository::remove_app_from_category(&self.repo.category_service(), &app_name, category_id).await
+                });
+            }
+            CategoryAction::LoadAppCategories(app_name) => {
+                if let Ok(categories) = self.runtime.block_on(async {
+                    CategoryRepository::get_app_categories(&self.repo.category_service(), &app_name).await
+                }) {
+                    let category_ids: Vec<i64> = categories.iter().filter_map(|c| c.id).collect();
+                    self.categories_view.set_app_categories(category_ids);
+                }
+            }
         }
     }
 }
@@ -435,13 +533,15 @@ impl eframe::App for TaiLApp {
 
                         if should_refresh {
                             let (start, end) = self.get_stats_time_range_bounds();
-                            self.categories_view.load_data(&self.repo, start, end);
+                            self.load_categories_data(start, end);
                             self.categories_last_refresh = Some(now);
                             self.categories_view.clear_refresh_flag();
                         }
 
-                        // 使用持久化的分类视图
-                        self.categories_view.show(ui, &self.repo);
+                        // 使用持久化的分类视图，处理返回的操作
+                        if let Some(action) = self.categories_view.show(ui) {
+                            self.handle_category_action(action);
+                        }
                     }
                     View::Details => {
                         // 更新数据并显示持久化的详细视图

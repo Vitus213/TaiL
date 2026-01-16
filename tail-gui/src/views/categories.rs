@@ -3,7 +3,7 @@
 use chrono::{DateTime, Utc};
 use egui::{Color32, Rounding, ScrollArea, Stroke, Ui, Vec2};
 use std::collections::HashSet;
-use tail_core::{AppUsage, CATEGORY_ICONS, Category, CategoryUsage, Repository};
+use tail_core::{AppUsage, AppUsageInCategory, CATEGORY_ICONS, Category, CategoryUsage};
 
 use crate::components::{EmptyState, PageHeader, SectionDivider, StatCard};
 use crate::components::chart::{ChartDataBuilder, ChartGroupMode, ChartTimeGranularity, StackedBarChart, StackedBarChartConfig, StackedBarTooltip};
@@ -24,6 +24,23 @@ const CATEGORY_COLORS: &[(&str, Color32)] = &[
     ("青绿", Color32::from_rgb(0, 200, 150)),
     ("灰色", Color32::from_rgb(120, 144, 156)),
 ];
+
+/// 分类视图操作
+#[derive(Debug)]
+pub enum CategoryAction {
+    /// 添加分类
+    AddCategory(Category),
+    /// 更新分类
+    UpdateCategory(Category),
+    /// 删除分类
+    DeleteCategory(i64),
+    /// 为应用设置分类
+    SetAppCategories(String, Vec<i64>),
+    /// 从分类中移除应用
+    RemoveAppFromCategory(String, i64),
+    /// 加载应用当前分类
+    LoadAppCategories(String),
+}
 
 /// 分类视图状态
 pub struct CategoriesView {
@@ -61,6 +78,10 @@ pub struct CategoriesView {
     needs_refresh: bool,
     /// 悬停的时间槽索引
     hovered_slot: Option<usize>,
+    /// 待处理的操作
+    pending_action: Option<CategoryAction>,
+    /// 加载的应用分类（用于回调响应）
+    loaded_app_categories: Vec<i64>,
 }
 
 impl CategoriesView {
@@ -83,6 +104,8 @@ impl CategoriesView {
             show_icon_picker: false,
             needs_refresh: false,
             hovered_slot: None,
+            pending_action: None,
+            loaded_app_categories: Vec::new(),
         }
     }
 
@@ -96,31 +119,32 @@ impl CategoriesView {
         self.needs_refresh = false;
     }
 
-    /// 加载分类数据
-    pub fn load_data(&mut self, repo: &Repository, start: DateTime<Utc>, end: DateTime<Utc>) {
-        // 加载分类使用统计
-        if let Ok(usage) = repo.get_category_usage(start, end) {
-            self.category_usage = usage;
-        }
+    /// 加载分类数据（接收预加载的数据）
+    pub fn load_data(
+        &mut self,
+        category_usage: Vec<CategoryUsage>,
+        categories: Vec<Category>,
+        all_apps: Vec<String>,
+        app_usage: Vec<AppUsage>,
+    ) {
+        self.category_usage = category_usage;
+        self.categories = categories;
+        self.all_apps = all_apps;
+        self.app_usage = app_usage;
+    }
 
-        // 加载所有分类
-        if let Ok(cats) = repo.get_categories() {
-            self.categories = cats;
-        }
+    /// 设置加载的应用分类（响应 LoadAppCategories 操作）
+    pub fn set_app_categories(&mut self, category_ids: Vec<i64>) {
+        self.selected_category_ids = category_ids;
+    }
 
-        // 加载所有应用名称
-        if let Ok(apps) = repo.get_all_app_names() {
-            self.all_apps = apps;
-        }
-
-        // 加载应用使用数据（用于堆叠柱形图）
-        if let Ok(usage) = repo.get_app_usage(start, end) {
-            self.app_usage = usage;
-        }
+    /// 取出并清除待处理的操作
+    pub fn take_action(&mut self) -> Option<CategoryAction> {
+        self.pending_action.take()
     }
 
     /// 渲染分类视图
-    pub fn show(&mut self, ui: &mut Ui, repo: &Repository) {
+    pub fn show(&mut self, ui: &mut Ui) -> Option<CategoryAction> {
         // 页面标题
         ui.add(
             PageHeader::new("应用分类", icons::PAGE_ICON, &self.theme)
@@ -142,7 +166,7 @@ impl CategoriesView {
         // 时间分布堆叠柱形图（按分类）
         ui.add(SectionDivider::new(&self.theme).with_title("时间分布 · 按分类堆叠"));
         ui.add_space(self.theme.spacing / 2.0);
-        self.show_stacked_chart(ui, repo);
+        self.show_stacked_chart(ui);
 
         ui.add_space(self.theme.spacing);
 
@@ -152,10 +176,13 @@ impl CategoriesView {
         ui.add_space(self.theme.spacing / 2.0);
 
         // 分类列表和柱形图
-        self.show_category_list(ui, repo);
+        self.show_category_list(ui);
 
         // 对话框
-        self.show_dialogs(ui, repo);
+        self.show_dialogs(ui);
+
+        // 取出待处理的操作
+        self.take_action()
     }
 
     /// 显示工具栏
@@ -236,7 +263,7 @@ impl CategoriesView {
     }
 
     /// 显示堆叠柱状图（按分类堆叠）
-    fn show_stacked_chart(&mut self, ui: &mut Ui, repo: &Repository) {
+    fn show_stacked_chart(&mut self, ui: &mut Ui) {
         if self.app_usage.is_empty() {
             ui.add(EmptyState::new(
                 "📊",
@@ -247,8 +274,8 @@ impl CategoriesView {
             return;
         }
 
+        // 不使用 with_repository，仅使用已有数据
         let chart_data = ChartDataBuilder::new(&self.app_usage)
-            .with_repository(repo)
             .with_granularity(ChartTimeGranularity::Day)
             .with_group_mode(ChartGroupMode::ByCategory)
             .build();
@@ -281,7 +308,7 @@ impl CategoriesView {
     }
 
     /// 显示分类列表
-    fn show_category_list(&mut self, ui: &mut Ui, repo: &Repository) {
+    fn show_category_list(&mut self, ui: &mut Ui) {
         if self.category_usage.is_empty() && self.all_apps.is_empty() {
             ui.add(EmptyState::new(
                 icons::EMPTY_STATE,
@@ -370,7 +397,6 @@ impl CategoriesView {
                         *percentage,
                         *color,
                         color_str.clone(),
-                        repo,
                     );
                 }
 
@@ -428,6 +454,12 @@ impl CategoriesView {
                                                                 Some(app_name.clone());
                                                             self.selected_category_ids.clear();
                                                             self.show_assign_dialog = true;
+                                                            // 触发加载应用分类操作
+                                                            self.pending_action = Some(
+                                                                CategoryAction::LoadAppCategories(
+                                                                    app_name.clone(),
+                                                                ),
+                                                            );
                                                         }
                                                     },
                                                 );
@@ -450,11 +482,10 @@ impl CategoriesView {
         cat_icon: &str,
         total_secs: i64,
         app_count: usize,
-        apps: &[tail_core::AppUsageInCategory],
+        apps: &[AppUsageInCategory],
         percentage: f32,
         color: Color32,
         color_str: Option<String>,
-        repo: &Repository,
     ) {
         egui::Frame::none()
             .fill(self.theme.card_background)
@@ -493,8 +524,8 @@ impl CategoriesView {
                             if ui.small_button("[删除]").clicked()
                                 && let Some(id) = cat_id
                             {
-                                let _ = repo.delete_category(id);
-                                self.needs_refresh = true; // 标记需要刷新
+                                self.pending_action = Some(CategoryAction::DeleteCategory(id));
+                                self.needs_refresh = true;
                             }
 
                             ui.add_space(self.theme.spacing);
@@ -551,7 +582,12 @@ impl CategoriesView {
                                         .on_hover_text("从此分类中移除")
                                         .clicked()
                                 {
-                                    let _ = repo.remove_app_from_category(&app.app_name, id);
+                                    self.pending_action = Some(
+                                        CategoryAction::RemoveAppFromCategory(
+                                            app.app_name.clone(),
+                                            id,
+                                        ),
+                                    );
                                     self.needs_refresh = true;
                                 }
                             });
@@ -604,25 +640,25 @@ impl CategoriesView {
     }
 
     /// 显示对话框
-    fn show_dialogs(&mut self, ui: &mut Ui, repo: &Repository) {
+    fn show_dialogs(&mut self, ui: &mut Ui) {
         // 添加分类对话框
         if self.show_add_dialog {
-            self.show_add_category_dialog(ui, repo);
+            self.show_add_category_dialog(ui);
         }
 
         // 编辑分类对话框
         if self.show_edit_dialog {
-            self.show_edit_category_dialog(ui, repo);
+            self.show_edit_category_dialog(ui);
         }
 
         // 应用归类对话框
         if self.show_assign_dialog {
-            self.show_assign_apps_dialog(ui, repo);
+            self.show_assign_apps_dialog(ui);
         }
     }
 
     /// 显示添加分类对话框
-    fn show_add_category_dialog(&mut self, ui: &mut Ui, repo: &Repository) {
+    fn show_add_category_dialog(&mut self, ui: &mut Ui) {
         egui::Window::new("添加分类")
             .collapsible(false)
             .resizable(false)
@@ -706,10 +742,10 @@ impl CategoriesView {
                                 icon: self.new_category_icon.clone(),
                                 color: self.new_category_color.clone(),
                             };
-                            let _ = repo.insert_category(&category);
+                            self.pending_action = Some(CategoryAction::AddCategory(category));
                             self.show_add_dialog = false;
                             self.show_icon_picker = false;
-                            self.needs_refresh = true; // 标记需要刷新
+                            self.needs_refresh = true;
                         }
 
                         if ui.button("取消").clicked() {
@@ -722,7 +758,7 @@ impl CategoriesView {
     }
 
     /// 显示编辑分类对话框
-    fn show_edit_category_dialog(&mut self, ui: &mut Ui, repo: &Repository) {
+    fn show_edit_category_dialog(&mut self, ui: &mut Ui) {
         egui::Window::new("编辑分类")
             .collapsible(false)
             .resizable(false)
@@ -809,10 +845,10 @@ impl CategoriesView {
                                 icon: self.new_category_icon.clone(),
                                 color: self.new_category_color.clone(),
                             };
-                            let _ = repo.update_category(&category);
+                            self.pending_action = Some(CategoryAction::UpdateCategory(category));
                             self.show_edit_dialog = false;
                             self.show_icon_picker = false;
-                            self.needs_refresh = true; // 标记需要刷新
+                            self.needs_refresh = true;
                         }
 
                         if ui.button("取消").clicked() {
@@ -825,7 +861,7 @@ impl CategoriesView {
     }
 
     /// 显示应用归类对话框
-    fn show_assign_apps_dialog(&mut self, ui: &mut Ui, repo: &Repository) {
+    fn show_assign_apps_dialog(&mut self, ui: &mut Ui) {
         egui::Window::new("管理应用分类")
             .collapsible(false)
             .resizable(true)
@@ -849,12 +885,11 @@ impl CategoriesView {
                                     )
                                     .clicked()
                                 {
-                                    // 选择新应用时，加载该应用当前的分类
+                                    // 选择新应用时，触发加载该应用当前的分类
                                     self.selected_app_name = Some(app_name.clone());
-                                    let current_categories =
-                                        repo.get_app_categories(app_name).unwrap_or_default();
-                                    self.selected_category_ids =
-                                        current_categories.iter().filter_map(|c| c.id).collect();
+                                    self.pending_action = Some(
+                                        CategoryAction::LoadAppCategories(app_name.clone()),
+                                    );
                                 }
                             }
                         });
@@ -906,13 +941,11 @@ impl CategoriesView {
                                 app_name,
                                 self.selected_category_ids
                             );
-                            match repo.set_app_categories(app_name, &self.selected_category_ids) {
-                                Ok(_) => {
-                                    tracing::info!("保存成功");
-                                    self.needs_refresh = true; // 标记需要刷新
-                                }
-                                Err(e) => tracing::error!("保存失败: {:?}", e),
-                            }
+                            self.pending_action = Some(CategoryAction::SetAppCategories(
+                                app_name.clone(),
+                                self.selected_category_ids.clone(),
+                            ));
+                            self.needs_refresh = true;
                             self.show_assign_dialog = false;
                             self.selected_app_name = None;
                             self.selected_category_ids.clear();

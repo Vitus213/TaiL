@@ -4,7 +4,8 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use std::time::Instant;
 use tail_afk::{AfkDetector, AfkState};
-use tail_core::{DbConfig, Repository, WindowEvent};
+use tail_core::{db::Config as DbConfig, Repository, WindowEvent};
+use tail_core::traits::WindowEventRepository;
 use tail_hyprland::{HyprlandEvent, HyprlandIpc};
 use tokio::sync::mpsc;
 use tokio::time::{interval, Duration};
@@ -225,10 +226,11 @@ impl TailService {
             if duration_secs > 0 {
                 if let Some(event_id) = prev_window.event_id {
                     // 更新已存在的事件
-                    match self
-                        .repo
-                        .update_window_event_duration(event_id, duration_secs)
-                    {
+                    match WindowEventRepository::update_duration(
+                        &self.repo,
+                        event_id,
+                        duration_secs
+                    ).await {
                         Ok(_) => {
                             info!(
                                 app_name = %prev_window.app_name,
@@ -262,7 +264,7 @@ impl TailService {
         };
 
         // 插入新事件到数据库
-        match self.repo.insert_window_event(&event) {
+        match WindowEventRepository::insert(&self.repo, &event).await {
             Ok(event_id) => {
                 info!(
                     app_name = %app_name,
@@ -312,8 +314,7 @@ impl TailService {
 
             if duration_secs > 0 {
                 if let Some(event_id) = window.event_id {
-                    self.repo
-                        .update_window_event_duration(event_id, duration_secs)?;
+                    WindowEventRepository::update_duration(&self.repo, event_id, duration_secs).await?;
                     debug!(
                         "Updated current window duration: {} ({} seconds)",
                         window.app_name, duration_secs
@@ -332,8 +333,7 @@ impl TailService {
                 .as_secs() as i64;
 
             if let Some(event_id) = window.event_id {
-                self.repo
-                    .update_window_event_duration(event_id, duration_secs)?;
+                WindowEventRepository::update_duration(&self.repo, event_id, duration_secs).await?;
                 info!(
                     "Flushed current window: {} ({} seconds)",
                     window.app_name, duration_secs
