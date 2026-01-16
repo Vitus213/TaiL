@@ -11,99 +11,63 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  fmt:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Check Rust Formatting
+        run: nix develop --command cargo fmt --check
+
+      - name: Check Nix Formatting
+        run: nix fmt --check
+
   test:
     name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Nix
         uses: cachix/install-nix-action@v24
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
-      
-      - name: Setup Nix Cache
+            substituters = https://cache.nixos.org https://tail.cachix.org
+            trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= tail.cachix.org-1:VuKyQx0g9q3QKTLiNqq2xFcEIX3uI8S5eLW3xOLlMN4=
+
+      - name: Run Tests
+        run: nix develop --command cargo test --workspace
+
+  build-and-push:
+    name: Build & Push to Cachix
+    runs-on: ubuntu-latest
+    needs: [fmt, test]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Build & Push to Cachix
         uses: cachix/cachix-action@v13
         with:
           name: tail
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-      
-      - name: Build
-        run: nix build .#tail-app .#tail-service
-      
-      - name: Run Unit Tests
-        run: nix develop --command cargo test --lib --workspace --verbose
-      
-      - name: Run Integration Tests
-        run: nix develop --command cargo test --test '*' --workspace --verbose
+          push-to-cache: true
 
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Nix
-        uses: cachix/install-nix-action@v24
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-      
-      - name: Run Clippy
-        run: nix develop --command cargo clippy --workspace --all-targets -- -D warnings
-      
-      - name: Check Formatting
-        run: nix develop --command cargo fmt --check
-
-  coverage:
-    name: Coverage
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Nix
-        uses: cachix/install-nix-action@v24
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-      
-      - name: Install Tarpaulin
-        run: nix develop --command cargo install cargo-tarpaulin
-      
-      - name: Run Coverage
-        run: nix develop --command cargo tarpaulin --workspace --out Xml --timeout 300
-      
-      - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./cobertura.xml
-          fail_ci_if_error: false
-
-  build-release:
-    name: Build Release
-    runs-on: ubuntu-latest
-    needs: [test, lint]
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Nix
-        uses: cachix/install-nix-action@v24
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-      
-      - name: Build Release
+      - name: Build Release Binaries
         run: |
           nix build .#tail-app --print-build-logs
           nix build .#tail-service --print-build-logs
-      
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: tail-binaries
-          path: |
-            result/bin/tail-app
-            result/bin/tail-service

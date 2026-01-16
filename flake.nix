@@ -192,6 +192,7 @@ EOF
             # Nix related
             nil
             nixpkgs-fmt
+            act  # GitHub Actions 本地运行工具
 
             # For testing IPC (can use socat to test socket)
             socat
