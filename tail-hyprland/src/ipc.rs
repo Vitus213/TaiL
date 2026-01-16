@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use thiserror::Error;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::net::UnixStream;
-use tracing::{debug, info};
+use tracing::{debug, error, info, warn};
 
 /// Hyprland IPC 错误
 #[derive(Debug, Error)]
@@ -54,6 +54,11 @@ impl HyprlandIpc {
         let instance_signature =
             std::env::var("HYPRLAND_INSTANCE_SIGNATURE").map_err(|_| IpcError::SocketNotFound)?;
 
+        debug!(
+            instance_signature = %instance_signature,
+            "HYPRLAND_INSTANCE_SIGNATURE 环境变量已获取"
+        );
+
         let xdg_runtime = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
 
         let socket_path = PathBuf::from(format!(
@@ -61,11 +66,17 @@ impl HyprlandIpc {
             xdg_runtime, instance_signature
         ));
 
-        info!("Hyprland socket path: {:?}", socket_path);
+        info!(socket_path = %socket_path.display(), "Hyprland socket 路径");
 
         if !socket_path.exists() {
+            error!(
+                socket_path = %socket_path.display(),
+                "Socket 文件不存在，请确认 Hyprland 正在运行"
+            );
             return Err(IpcError::SocketNotFound);
         }
+
+        debug!("Hyprland IPC 客户端创建成功");
 
         Ok(Self { socket_path })
     }
@@ -75,23 +86,61 @@ impl HyprlandIpc {
     where
         F: FnMut(HyprlandEvent),
     {
-        let stream = UnixStream::connect(&self.socket_path).await?;
+        info!("正在连接到 Hyprand IPC socket...");
+
+        let stream = match UnixStream::connect(&self.socket_path).await {
+            Ok(s) => {
+                info!("Hyprand IPC socket 连接成功");
+                s
+            }
+            Err(e) => {
+                error!(
+                    error = %e,
+                    socket_path = %self.socket_path.display(),
+                    "连接 Hyprand IPC socket 失败"
+                );
+                return Err(e.into());
+            }
+        };
+
         let mut reader = BufReader::new(stream);
         let mut line = String::new();
+        let mut event_count = 0;
 
-        info!("Connected to Hyprland IPC socket");
+        info!("Hyprand 事件订阅已启动");
 
         while reader.read_line(&mut line).await? > 0 {
             let line_str = line.trim();
-            debug!("Raw event: {}", line_str);
+            event_count += 1;
+
+            debug!(
+                event_count = event_count,
+                raw_event = %line_str,
+                "收到 Hyprand 事件"
+            );
 
             if let Some(event) = Self::parse_event(line_str) {
+                let event_name = match &event {
+                    HyprlandEvent::ActiveWindowChanged { .. } => "ActiveWindowChanged",
+                    HyprlandEvent::WindowOpened { .. } => "WindowOpened",
+                    HyprlandEvent::WindowClosed { .. } => "WindowClosed",
+                    HyprlandEvent::WorkspaceChanged { .. } => "WorkspaceChanged",
+                    HyprlandEvent::WindowTitleChanged { .. } => "WindowTitleChanged",
+                };
+                debug!(event_type = event_name, "事件解析成功");
                 callback(event);
+            } else {
+                warn!(
+                    raw_event = %line_str,
+                    event_count = event_count,
+                    "事件解析失败，无法识别的事件格式"
+                );
             }
 
             line.clear();
         }
 
+        warn!("Hyprand IPC 连接已关闭（EOF）");
         Ok(())
     }
 

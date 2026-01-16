@@ -46,16 +46,6 @@ impl<'a> TimeNavigationController<'a> {
 
             ui.add_space(16.0);
 
-            // 返回按钮
-            if ui
-                .button(egui::RichText::new("⬅ 返回").color(self.theme.text_color))
-                .clicked()
-            {
-                go_back = true;
-            }
-
-            ui.add_space(8.0);
-
             // 快捷时间范围按钮
             // 今天按钮
             let is_today = self.state.level == TimeNavigationLevel::Hour

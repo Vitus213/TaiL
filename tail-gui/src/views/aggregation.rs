@@ -29,8 +29,13 @@ impl<'a> DataAggregator<'a> {
             }
             TimeNavigationLevel::Day => {
                 let month = state.selected_month.unwrap_or(1);
-                let week = state.selected_week.unwrap_or(1);
-                self.aggregate_by_week(state.selected_year, month, week)
+                if state.selected_week.is_none() {
+                    // selected_week 为 None 表示"本周"快捷选项
+                    self.aggregate_this_week()
+                } else {
+                    let week = state.selected_week.unwrap();
+                    self.aggregate_by_week(state.selected_year, month, week)
+                }
             }
             TimeNavigationLevel::Hour => {
                 let month = state.selected_month.unwrap_or(1);
@@ -170,6 +175,46 @@ impl<'a> DataAggregator<'a> {
                 label: format!("{}时", hour),
                 index: hour as i32,
                 total_seconds: hourly_usage.get(&hour).copied().unwrap_or(0),
+            })
+            .collect()
+    }
+
+    /// 聚合本周（从周一开始）7天的数据
+    fn aggregate_this_week(&self) -> Vec<PeriodUsage> {
+        let now = Local::now();
+        let weekday = now.weekday().num_days_from_monday();
+        let week_start = now.date_naive() - Duration::days(weekday as i64);
+
+        let mut daily_usage: HashMap<NaiveDate, i64> = HashMap::new();
+
+        for usage in self.app_usage {
+            for event in &usage.window_events {
+                let event_date = event.timestamp.date_naive();
+                if event_date >= week_start && event_date < week_start + Duration::days(7) {
+                    *daily_usage.entry(event_date).or_insert(0) += event.duration_secs;
+                }
+            }
+        }
+
+        (0..7)
+            .map(|i| {
+                let date = week_start + Duration::days(i);
+                let weekday = date.weekday();
+                let label = match weekday {
+                    chrono::Weekday::Mon => "周一",
+                    chrono::Weekday::Tue => "周二",
+                    chrono::Weekday::Wed => "周三",
+                    chrono::Weekday::Thu => "周四",
+                    chrono::Weekday::Fri => "周五",
+                    chrono::Weekday::Sat => "周六",
+                    chrono::Weekday::Sun => "周日",
+                };
+
+                PeriodUsage {
+                    label: label.to_string(),
+                    index: date.day() as i32,
+                    total_seconds: daily_usage.get(&date).copied().unwrap_or(0),
+                }
             })
             .collect()
     }

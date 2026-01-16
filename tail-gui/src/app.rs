@@ -4,6 +4,7 @@ use chrono::{DateTime, Datelike, Duration as ChronoDuration, Local, Utc};
 use std::sync::Arc;
 use tail_core::models::{TimeNavigationState, TimeRange};
 use tail_core::{AppUsage, DailyGoal, DbConfig, Repository};
+use tracing::{debug, info, warn};
 
 use crate::components::{AliasDialog, NavigationMode, SidebarNav, TopTabNav, View};
 use crate::icons::IconCache;
@@ -180,22 +181,32 @@ impl TaiLApp {
         }
 
         let (start, end) = self.get_stats_time_range_bounds();
-        eprintln!("[DEBUG] app.rs - 刷新统计数据: stats_time_range={:?}, start={:?}, end={:?}",
-            self.stats_time_range, start, end);
+        debug!(
+            time_range = ?self.stats_time_range,
+            start = %start,
+            end = %end,
+            "刷新统计数据"
+        );
 
         match self.repo.get_app_usage(start, end) {
             Ok(usage) => {
-                eprintln!("[DEBUG] app.rs - 获取到 {} 条应用使用记录", usage.len());
+                debug!(
+                    count = usage.len(),
+                    "统计数据获取成功"
+                );
                 for (i, u) in usage.iter().take(3).enumerate() {
-                    eprintln!("[DEBUG] app.rs - usage[{}]: app_name={}, total_seconds={}, events.len()={}",
-                        i, u.app_name, u.total_seconds, u.window_events.len());
+                    debug!(
+                        index = i,
+                        app_name = %u.app_name,
+                        total_seconds = u.total_seconds,
+                        events_count = u.window_events.len(),
+                        "应用使用记录"
+                    );
                 }
-                tracing::debug!("统计页面获取 {} 条应用使用记录", usage.len());
                 self.stats_usage_cache = usage;
             }
             Err(e) => {
-                eprintln!("[DEBUG] app.rs - 获取统计数据失败: {}", e);
-                tracing::error!("获取统计数据失败: {}", e);
+                debug!(error = %e, "获取统计数据失败");
             }
         }
 
@@ -268,6 +279,17 @@ impl TaiLApp {
 
     /// 切换主题
     fn change_theme(&mut self, theme_type: ThemeType) {
+        let theme_name = match theme_type {
+            ThemeType::Light => "浅色",
+            ThemeType::Dark => "深色",
+            ThemeType::Auto => "自动",
+            _ => {
+                // 使用 Debug 输出其他主题名称
+                "自定义主题"
+            }
+        };
+        info!(theme = theme_name, "主题切换");
+
         self.theme_type = theme_type;
         self.theme = theme_type.to_theme();
         self.theme_applied = false;

@@ -2,6 +2,7 @@
 
 use std::time::{Duration, Instant};
 use thiserror::Error;
+use tracing::{debug, info};
 
 /// AFK 检测错误
 #[derive(Debug, Error)]
@@ -29,6 +30,10 @@ pub struct AfkDetector {
 impl AfkDetector {
     /// 创建新的 AFK 检测器
     pub fn new(timeout_secs: u64) -> Self {
+        debug!(
+            timeout_secs = timeout_secs,
+            "创建 AFK 检测器"
+        );
         Self {
             timeout: Duration::from_secs(timeout_secs),
             last_activity: Instant::now(),
@@ -38,8 +43,15 @@ impl AfkDetector {
 
     /// 更新活动时间
     pub fn record_activity(&mut self) {
+        let was_afk = self.is_afk();
         self.last_activity = Instant::now();
+
+        if was_afk {
+            info!("用户从 AFK 状态恢复为活跃状态");
+        }
+
         if self.state != AfkState::Active {
+            debug!("AFK 状态已重置为活跃状态");
             self.state = AfkState::Active;
         }
     }
@@ -49,10 +61,18 @@ impl AfkDetector {
         let elapsed = self.last_activity.elapsed();
 
         if elapsed >= self.timeout && self.state == AfkState::Active {
+            info!(
+                elapsed_secs = elapsed.as_secs(),
+                timeout_secs = self.timeout.as_secs(),
+                "用户进入 AFK 状态"
+            );
             self.state = AfkState::Afk {
                 since: self.last_activity,
             };
         } else if elapsed < self.timeout {
+            if self.is_afk() {
+                info!("用户从 AFK 状态恢复为活跃状态");
+            }
             self.state = AfkState::Active;
         }
 

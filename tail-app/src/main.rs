@@ -1,20 +1,23 @@
 //! TaiL GUI 应用入口
 
 use tail_gui::{TaiLApp, ThemeType, setup_fonts};
+use tail_core::logging::LogOutput;
+use tracing::{info, warn};
 
 /// 加载应用图标
 fn load_app_icon() -> Option<egui::IconData> {
     // 尝试从嵌入的 SVG 加载图标
     let svg_data = include_bytes!("../../tail-gui/assets/icons/tail.svg");
+    let svg_len = svg_data.len();
 
-    tracing::debug!("加载应用图标，SVG 数据大小: {} 字节", svg_data.len());
+    info!(size_bytes = svg_len, "正在加载应用图标");
 
     // 解析 SVG
     let options = resvg::usvg::Options::default();
     let tree = match resvg::usvg::Tree::from_data(svg_data, &options) {
         Ok(t) => t,
         Err(e) => {
-            tracing::error!("解析 SVG 失败: {}", e);
+            let _ = tracing::error!(error = %e, "解析 SVG 图标失败");
             return None;
         }
     };
@@ -24,7 +27,7 @@ fn load_app_icon() -> Option<egui::IconData> {
     let mut pixmap = match resvg::tiny_skia::Pixmap::new(size, size) {
         Some(p) => p,
         None => {
-            tracing::error!("创建 Pixmap 失败");
+            let _ = tracing::error!("创建 Pixmap 失败");
             return None;
         }
     };
@@ -43,7 +46,7 @@ fn load_app_icon() -> Option<egui::IconData> {
     resvg::render(&tree, transform, &mut pixmap.as_mut());
 
     let pixels = pixmap.take();
-    tracing::info!("应用图标加载成功，大小: {}x{}", size, size);
+    info!(width = size, height = size, "应用图标加载成功");
 
     Some(egui::IconData {
         rgba: pixels,
@@ -53,18 +56,15 @@ fn load_app_icon() -> Option<egui::IconData> {
 }
 
 fn main() -> eframe::Result<()> {
-    // 初始化日志
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or(tracing_subscriber::EnvFilter::new("info")),
-        )
-        .init();
+    // 初始化日志系统
+    tail_core::logging::init_logging(LogOutput::Stdout, "info");
+
+    info!("TaiL GUI 应用正在启动...");
 
     // 加载应用图标
     let icon = load_app_icon();
     if icon.is_none() {
-        tracing::warn!("无法加载应用图标");
+        warn!("无法加载应用图标，将使用默认图标");
     }
 
     // 初始化 egui
@@ -72,7 +72,7 @@ fn main() -> eframe::Result<()> {
         .with_inner_size([900.0, 700.0])
         .with_min_inner_size([600.0, 400.0])
         .with_title("TaiL - 时间追踪")
-        .with_app_id("tail"); // 设置 Wayland app_id，用于 Hyprland 识别窗口
+        .with_app_id("tail"); // 设置 Wayland app_id，用于 Hyprand 识别窗口
 
     // 设置窗口图标
     if let Some(icon_data) = icon {
@@ -88,6 +88,8 @@ fn main() -> eframe::Result<()> {
         ..Default::default()
     };
 
+    info!("正在创建 egui 窗口...");
+
     eframe::run_native(
         "TaiL - Window Time Tracker",
         options,
@@ -99,6 +101,7 @@ fn main() -> eframe::Result<()> {
             let theme = ThemeType::default().to_theme();
             theme.apply(&cc.egui_ctx);
 
+            info!("TaiL GUI 应用已启动");
             Ok(Box::new(TaiLApp::new(cc)))
         }),
     )

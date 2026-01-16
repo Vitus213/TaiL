@@ -5,8 +5,12 @@ use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
 use std::path::Path;
+use std::time::Instant;
 
 use crate::models::*;
+
+// 导入日志宏
+use tracing::{debug, error, info, warn};
 
 /// 数据库错误类型
 #[derive(Debug, thiserror::Error)]
@@ -53,11 +57,35 @@ pub struct Repository {
 impl Repository {
     /// 创建新的数据库连接
     pub fn new(config: &DbConfig) -> Result<Self, DbError> {
+        info!("正在初始化数据库连接，路径: {}", config.path);
+        let start = Instant::now();
+
         let manager = SqliteConnectionManager::file(&config.path);
-        let pool = Pool::builder().max_size(10).build(manager)?;
+        let pool = match Pool::builder().max_size(10).build(manager) {
+            Ok(p) => {
+                let elapsed = start.elapsed();
+                info!(
+                    "数据库连接池创建成功，路径: {}, 耗时: {:?}",
+                    config.path, elapsed
+                );
+                p
+            }
+            Err(e) => {
+                error!(
+                    error = %e,
+                    db_path = %config.path,
+                    pool_size = 10,
+                    "数据库连接池创建失败"
+                );
+                return Err(e.into());
+            }
+        };
 
         let repo = Self { pool };
         repo.init_schema()?;
+
+        let total_elapsed = start.elapsed();
+        info!("数据库初始化完成，总耗时: {:?}", total_elapsed);
 
         Ok(repo)
     }
@@ -69,9 +97,11 @@ impl Repository {
 
     /// 初始化数据库 schema
     fn init_schema(&self) -> Result<(), DbError> {
+        debug!("开始初始化数据库 schema");
         let conn = self.pool.get()?;
 
         // 窗口事件表
+        debug!("创建/检查 window_events 表");
         conn.execute(
             "CREATE TABLE IF NOT EXISTS window_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,8 +114,10 @@ impl Repository {
             )",
             [],
         )?;
+        debug!("window_events 表已就绪");
 
         // 索引
+        debug!("创建/检查 window_events 索引");
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_window_events_timestamp
              ON window_events(timestamp)",
@@ -98,6 +130,7 @@ impl Repository {
         )?;
 
         // AFK 事件表
+        debug!("创建/检查 afk_events 表");
         conn.execute(
             "CREATE TABLE IF NOT EXISTS afk_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -107,8 +140,10 @@ impl Repository {
             )",
             [],
         )?;
+        debug!("afk_events 表已就绪");
 
         // 每日目标表
+        debug!("创建/检查 daily_goals 表");
         conn.execute(
             "CREATE TABLE IF NOT EXISTS daily_goals (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -118,8 +153,10 @@ impl Repository {
             )",
             [],
         )?;
+        debug!("daily_goals 表已就绪");
 
         // 分类表
+        debug!("创建/检查 categories 表");
         conn.execute(
             "CREATE TABLE IF NOT EXISTS categories (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -130,8 +167,10 @@ impl Repository {
             )",
             [],
         )?;
+        debug!("categories 表已就绪");
 
         // 应用-分类关联表（多对多关系）
+        debug!("创建/检查 app_categories 表");
         conn.execute(
             "CREATE TABLE IF NOT EXISTS app_categories (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -143,8 +182,10 @@ impl Repository {
             )",
             [],
         )?;
+        debug!("app_categories 表已就绪");
 
         // 应用别名表
+        debug!("创建/检查 app_aliases 表");
         conn.execute(
             "CREATE TABLE IF NOT EXISTS app_aliases (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -154,6 +195,7 @@ impl Repository {
             )",
             [],
         )?;
+        debug!("app_aliases 表已就绪");
 
         // 索引
         conn.execute(
@@ -165,6 +207,8 @@ impl Repository {
             [],
         )?;
 
+        debug!("数据库 schema 初始化完成");
+
         Ok(())
     }
 
@@ -172,7 +216,15 @@ impl Repository {
     pub fn insert_window_event(&self, event: &WindowEvent) -> Result<i64, DbError> {
         let conn = self.pool.get()?;
 
-        conn.execute(
+        debug!(
+            app_name = %event.app_name,
+            window_title = %event.window_title,
+            duration_secs = event.duration_secs,
+            is_afk = event.is_afk,
+            "插入窗口事件"
+        );
+
+        match conn.execute(
             "INSERT INTO window_events (timestamp, app_name, window_title, workspace, duration_secs, is_afk)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
@@ -183,9 +235,22 @@ impl Repository {
                 event.duration_secs,
                 event.is_afk,
             ],
-        )?;
-
-        Ok(conn.last_insert_rowid())
+        ) {
+            Ok(_) => {
+                let id = conn.last_insert_rowid();
+                debug!(event_id = id, "窗口事件插入成功");
+                Ok(id)
+            }
+            Err(e) => {
+                error!(
+                    error = %e,
+                    app_name = %event.app_name,
+                    timestamp = %event.timestamp,
+                    "插入窗口事件失败"
+                );
+                Err(e.into())
+            }
+        }
     }
 
     /// 获取指定时间范围内的窗口事件
@@ -194,6 +259,12 @@ impl Repository {
         start: DateTime<Utc>,
         end: DateTime<Utc>,
     ) -> Result<Vec<WindowEvent>, DbError> {
+        debug!(
+            start = %start,
+            end = %end,
+            "查询窗口事件"
+        );
+
         let conn = self.pool.get()?;
 
         let mut stmt = conn.prepare(
@@ -217,6 +288,7 @@ impl Repository {
             })?
             .collect::<Result<Vec<_>, _>>()?;
 
+        debug!(count = events.len(), "窗口事件查询完成");
         Ok(events)
     }
 
@@ -293,12 +365,35 @@ impl Repository {
 
     /// 更新窗口事件的时长
     pub fn update_window_event_duration(&self, id: i64, duration_secs: i64) -> Result<(), DbError> {
+        debug!(
+            event_id = id,
+            duration_secs = duration_secs,
+            "更新窗口事件时长"
+        );
+
         let conn = self.pool.get()?;
-        conn.execute(
+        match conn.execute(
             "UPDATE window_events SET duration_secs = ?1 WHERE id = ?2",
             params![duration_secs, id],
-        )?;
-        Ok(())
+        ) {
+            Ok(rows_affected) => {
+                if rows_affected == 0 {
+                    warn!(event_id = id, "更新窗口事件时长：未找到匹配记录");
+                } else {
+                    debug!(event_id = id, "窗口事件时长更新成功");
+                }
+                Ok(())
+            }
+            Err(e) => {
+                error!(
+                    error = %e,
+                    event_id = id,
+                    duration_secs = duration_secs,
+                    "更新窗口事件时长失败"
+                );
+                Err(e.into())
+            }
+        }
     }
 
     /// 插入 AFK 事件
@@ -435,29 +530,86 @@ impl Repository {
 
     /// 插入新分类
     pub fn insert_category(&self, category: &Category) -> Result<i64, DbError> {
+        debug!(
+            name = %category.name,
+            icon = %category.icon,
+            "插入新分类"
+        );
+
         let conn = self.pool.get()?;
-        conn.execute(
+        match conn.execute(
             "INSERT INTO categories (name, icon, color) VALUES (?1, ?2, ?3)",
             params![category.name, category.icon, category.color],
-        )?;
-        Ok(conn.last_insert_rowid())
+        ) {
+            Ok(_) => {
+                let id = conn.last_insert_rowid();
+                info!(category_id = id, name = %category.name, "分类插入成功");
+                Ok(id)
+            }
+            Err(e) => {
+                error!(
+                    error = %e,
+                    name = %category.name,
+                    "插入分类失败"
+                );
+                Err(e.into())
+            }
+        }
     }
 
     /// 更新分类
     pub fn update_category(&self, category: &Category) -> Result<(), DbError> {
+        debug!(
+            category_id = category.id.unwrap_or(0),
+            name = %category.name,
+            "更新分类"
+        );
+
         let conn = self.pool.get()?;
-        conn.execute(
+        match conn.execute(
             "UPDATE categories SET name = ?1, icon = ?2, color = ?3 WHERE id = ?4",
             params![category.name, category.icon, category.color, category.id],
-        )?;
-        Ok(())
+        ) {
+            Ok(rows_affected) => {
+                if rows_affected == 0 {
+                    warn!(
+                        category_id = category.id.unwrap_or(0),
+                        "更新分类：未找到匹配记录"
+                    );
+                }
+                Ok(())
+            }
+            Err(e) => {
+                error!(
+                    error = %e,
+                    category_id = category.id.unwrap_or(0),
+                    name = %category.name,
+                    "更新分类失败"
+                );
+                Err(e.into())
+            }
+        }
     }
 
     /// 删除分类
     pub fn delete_category(&self, id: i64) -> Result<(), DbError> {
+        debug!(category_id = id, "删除分类");
+
         let conn = self.pool.get()?;
-        conn.execute("DELETE FROM categories WHERE id = ?1", params![id])?;
-        Ok(())
+        match conn.execute("DELETE FROM categories WHERE id = ?1", params![id]) {
+            Ok(rows_affected) => {
+                if rows_affected == 0 {
+                    warn!(category_id = id, "删除分类：未找到匹配记录");
+                } else {
+                    info!(category_id = id, "分类删除成功");
+                }
+                Ok(())
+            }
+            Err(e) => {
+                error!(error = %e, category_id = id, "删除分类失败");
+                Err(e.into())
+            }
+        }
     }
 
     /// 获取所有分类
