@@ -1,8 +1,6 @@
 //! 应用状态管理
 
 use std::sync::Arc;
-use std::time::Duration;
-use tail_core::services::*;
 use crate::services::DataService;
 
 /// 应用状态存储

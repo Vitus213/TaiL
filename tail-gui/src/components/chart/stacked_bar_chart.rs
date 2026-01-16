@@ -261,6 +261,7 @@ impl<'a> StackedBarChart<'a> {
     }
 
     /// 绘制网格线
+    #[allow(clippy::too_many_arguments)]
     fn draw_grid_lines(
         &self,
         ui: &mut Ui,
@@ -289,6 +290,7 @@ impl<'a> StackedBarChart<'a> {
     }
 
     /// 绘制单个柱子
+    #[allow(clippy::too_many_arguments)]
     fn draw_bar(
         &self,
         ui: &mut Ui,

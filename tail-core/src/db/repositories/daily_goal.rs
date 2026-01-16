@@ -5,7 +5,7 @@ use crate::models::DailyGoal;
 use crate::traits::DailyGoalRepository;
 use crate::db::pool::DbPool;
 use async_trait::async_trait;
-use chrono::{Datelike, Local, Utc};
+use chrono::{Local, Utc};
 use rusqlite::params;
 
 /// 每日目标仓储实现

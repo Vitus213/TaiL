@@ -6,7 +6,6 @@ use crate::traits::DailyGoalRepository;
 use crate::db::repositories::DailyGoalRepositoryImpl;
 use crate::db::pool::DbPool;
 use async_trait::async_trait;
-use std::sync::Arc;
 
 /// 目标进度
 #[derive(Debug, Clone)]

@@ -2,10 +2,9 @@
 
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::params;
-use tracing::{error, info};
+use tracing::info;
 
-use crate::errors::{DbError, DbResult};
+use crate::errors::DbResult;
 
 /// 数据库连接池类型
 pub type DbPool = Pool<SqliteConnectionManager>;

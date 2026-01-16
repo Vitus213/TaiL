@@ -7,7 +7,7 @@ use crate::db::pool::DbPool;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use rusqlite::params;
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 
 /// 窗口事件仓储实现
 pub struct WindowEventRepositoryImpl {

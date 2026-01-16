@@ -2,7 +2,7 @@
 
 use crate::errors::{DbError, DbResult};
 use crate::models::AppUsage;
-use crate::traits::{AppUsageQuery, WindowEventRepository};
+use crate::traits::AppUsageQuery;
 use crate::db::pool::DbPool;
 use crate::db::repositories::WindowEventRepositoryImpl;
 use async_trait::async_trait;

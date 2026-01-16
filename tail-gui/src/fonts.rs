@@ -107,13 +107,11 @@ fn recursive_find(dir: &std::path::Path, filename: &str, max_depth: usize) -> st
             if let Ok(found) = recursive_find(&path, filename, max_depth - 1) {
                 return Ok(found);
             }
-        } else if path.is_file() {
-            if let Some(name) = path.file_name() {
-                if name == filename {
+        } else if path.is_file()
+            && let Some(name) = path.file_name()
+                && name == filename {
                     return Ok(path);
                 }
-            }
-        }
     }
 
     Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Font not found"))

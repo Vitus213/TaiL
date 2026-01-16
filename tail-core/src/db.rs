@@ -6,14 +6,10 @@ pub mod pool;
 pub mod repositories;
 pub mod queries;
 
-use pool::{create_pool, init_schema, DbConfig};
+use pool::{create_pool, init_schema};
 use std::sync::Arc;
 
 use crate::services::{CategoryServiceImpl, GoalServiceImpl, UsageServiceImpl};
-use crate::traits::{
-    AfkEventRepository, AliasRepository, CategoryRepository, DailyGoalRepository,
-    WindowEventRepository,
-};
 
 // 重新导出 pool 模块的内容
 pub use pool::DbConfig as Config;

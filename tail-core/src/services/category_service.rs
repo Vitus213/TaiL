@@ -1,7 +1,7 @@
 //! 分类服务实现
 
-use crate::errors::{DbError, DbResult};
-use crate::models::{AppUsageInCategory, Category, CategoryUsage};
+use crate::errors::DbResult;
+use crate::models::{Category, CategoryUsage};
 use crate::traits::CategoryRepository;
 use crate::db::repositories::CategoryRepositoryImpl;
 use crate::db::pool::DbPool;

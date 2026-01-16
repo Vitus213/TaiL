@@ -6,7 +6,7 @@ use tail_core::models::{TimeNavigationState, TimeRange};
 use tail_core::{AppUsage, DailyGoal, Repository};
 use tail_core::db::Config as DbConfig;
 use tail_core::traits::{AppUsageQuery, DailyGoalRepository, AliasRepository, CategoryRepository, CategoryUsageQuery};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::components::{AliasDialog, NavigationMode, SidebarNav, TopTabNav, View};
 use crate::icons::IconCache;

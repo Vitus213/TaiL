@@ -5,7 +5,7 @@ use crate::models::PeriodUsage;
 use crate::traits::TimeStatsQuery;
 use crate::db::pool::DbPool;
 use async_trait::async_trait;
-use chrono::{Datelike, Local, NaiveDate, TimeZone, Utc};
+use chrono::{Datelike, Local, NaiveDate, Utc};
 use rusqlite::params;
 use std::sync::Arc;
 

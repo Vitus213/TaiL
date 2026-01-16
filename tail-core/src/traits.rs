@@ -1,6 +1,6 @@
 //! TaiL Core - 核心 Trait 定义
 
-use crate::errors::{DbError, DbResult};
+use crate::errors::DbResult;
 use crate::models::*;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};

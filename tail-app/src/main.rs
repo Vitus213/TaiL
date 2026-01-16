@@ -17,7 +17,7 @@ fn load_app_icon() -> Option<egui::IconData> {
     let tree = match resvg::usvg::Tree::from_data(svg_data, &options) {
         Ok(t) => t,
         Err(e) => {
-            let _ = tracing::error!(error = %e, "解析 SVG 图标失败");
+            tracing::error!(error = %e, "解析 SVG 图标失败");
             return None;
         }
     };
@@ -27,7 +27,7 @@ fn load_app_icon() -> Option<egui::IconData> {
     let mut pixmap = match resvg::tiny_skia::Pixmap::new(size, size) {
         Some(p) => p,
         None => {
-            let _ = tracing::error!("创建 Pixmap 失败");
+            tracing::error!("创建 Pixmap 失败");
             return None;
         }
     };

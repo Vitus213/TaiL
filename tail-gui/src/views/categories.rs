@@ -1,6 +1,5 @@
 //! TaiL GUI - 分类视图
 
-use chrono::{DateTime, Utc};
 use egui::{Color32, Rounding, ScrollArea, Stroke, Ui, Vec2};
 use std::collections::HashSet;
 use tail_core::{AppUsage, AppUsageInCategory, CATEGORY_ICONS, Category, CategoryUsage};
@@ -80,8 +79,6 @@ pub struct CategoriesView {
     hovered_slot: Option<usize>,
     /// 待处理的操作
     pending_action: Option<CategoryAction>,
-    /// 加载的应用分类（用于回调响应）
-    loaded_app_categories: Vec<i64>,
 }
 
 impl CategoriesView {
@@ -105,7 +102,6 @@ impl CategoriesView {
             needs_refresh: false,
             hovered_slot: None,
             pending_action: None,
-            loaded_app_categories: Vec::new(),
         }
     }
 

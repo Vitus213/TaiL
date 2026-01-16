@@ -124,7 +124,7 @@ impl ChartData {
 
     /// 获取所有出现过的分组名称
     pub fn all_groups(&self) -> Vec<String> {
-        let mut groups: std::collections::HashSet<_> = self
+        let groups: std::collections::HashSet<_> = self
             .time_slots
             .iter()
             .flat_map(|slot| slot.group_durations.keys())
@@ -221,7 +221,7 @@ impl<'a> ChartDataBuilder<'a> {
     }
 
     /// 构建24小时时间槽（单日）
-    fn build_day_slots(mut self) -> ChartData {
+    fn build_day_slots(self) -> ChartData {
         let mut slots: Vec<ChartTimeSlot> = (0..24).map(|i| {
             ChartTimeSlot::new(format!("{}h", i), i)
         }).collect();
@@ -270,7 +270,7 @@ impl<'a> ChartDataBuilder<'a> {
     }
 
     /// 构建7天时间槽（周）
-    fn build_week_slots(mut self) -> ChartData {
+    fn build_week_slots(self) -> ChartData {
         let weekday_labels = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
         let mut slots: Vec<ChartTimeSlot> = (0..7).map(|i| {
             ChartTimeSlot::new(weekday_labels[i].to_string(), i)
@@ -318,8 +318,7 @@ impl<'a> ChartDataBuilder<'a> {
     }
 
     /// 构建月份周数槽（月）
-    fn build_month_slots(mut self) -> ChartData {
-        let mut slots: Vec<ChartTimeSlot> = Vec::new();
+    fn build_month_slots(self) -> ChartData {
         let mut weekly_data: HashMap<u32, ChartTimeSlot> = HashMap::new();
 
         for usage in self.app_usage {
@@ -371,9 +370,8 @@ impl<'a> ChartDataBuilder<'a> {
             }
         }
 
-        let mut sorted_slots: Vec<_> = weekly_data.into_values().collect();
-        sorted_slots.sort_by_key(|s| s.index);
-        slots = sorted_slots;
+        let mut slots: Vec<_> = weekly_data.into_values().collect();
+        slots.sort_by_key(|s| s.index);
 
         ChartData {
             time_slots: slots,
@@ -384,7 +382,7 @@ impl<'a> ChartDataBuilder<'a> {
     }
 
     /// 构建12个月槽（年）
-    fn build_year_slots(mut self) -> ChartData {
+    fn build_year_slots(self) -> ChartData {
         let month_labels = [
             "1月", "2月", "3月", "4月", "5月", "6月",
             "7月", "8月", "9月", "10月", "11月", "12月",
@@ -441,7 +439,7 @@ impl<'a> ChartDataBuilder<'a> {
     }
 
     /// 构建60分钟槽（小时）
-    fn build_hour_slots(mut self) -> ChartData {
+    fn build_hour_slots(self) -> ChartData {
         let mut slots: Vec<ChartTimeSlot> = (0..60).map(|i| {
             ChartTimeSlot::new(format!("{}m", i), i)
         }).collect();

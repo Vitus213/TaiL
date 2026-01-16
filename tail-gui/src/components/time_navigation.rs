@@ -32,7 +32,7 @@ impl<'a> TimeNavigationController<'a> {
     /// 显示导航控制器
     /// 返回：(是否返回上一级, 快捷时间范围选择, 选择的视图级别)
     pub fn show(&self, ui: &mut Ui) -> (bool, Option<QuickTimeRange>, Option<TimeNavigationLevel>) {
-        let mut go_back = false;
+        let go_back = false;
         let mut quick_range = None;
         let mut selected_level = None;
 

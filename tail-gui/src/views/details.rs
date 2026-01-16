@@ -42,6 +42,12 @@ pub struct WindowEventRecord {
     pub is_afk: bool,
 }
 
+impl Default for DetailsView {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DetailsView {
     pub fn new() -> Self {
         Self {
