@@ -5,7 +5,7 @@ use crate::errors::{DbError, DbResult};
 use crate::models::PeriodUsage;
 use crate::traits::TimeStatsQuery;
 use async_trait::async_trait;
-use chrono::{Datelike, Local, NaiveDate, Utc};
+use chrono::{Datelike, Local, NaiveDate, Timelike, Utc};
 use rusqlite::params;
 use std::sync::Arc;
 
@@ -245,32 +245,87 @@ impl TimeStatsQueryImpl {
 
         let date = NaiveDate::from_ymd_opt(year, month, day).unwrap();
 
+        // 获取该天的所有事件（一次性获取，然后按小时分配）
+        let day_start = date
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_local_timezone(Local)
+            .unwrap()
+            .with_timezone(&Utc);
+        let day_end = date
+            .and_hms_opt(23, 59, 59)
+            .unwrap()
+            .and_local_timezone(Local)
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let mut stmt = conn.prepare(
+            "SELECT timestamp, duration_secs
+             FROM window_events
+             WHERE timestamp >= ?1 AND timestamp <= ?2 AND is_afk = 0
+             ORDER BY timestamp",
+        )?;
+
+        let events: Vec<(chrono::DateTime<Utc>, i64)> = stmt
+            .query_map(params![day_start, day_end], |row| {
+                Ok((
+                    row.get::<_, chrono::DateTime<Utc>>(0)?,
+                    row.get::<_, i64>(1)?,
+                ))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // 初始化24小时的槽
+        let mut hour_totals = [0i64; 24];
+
+        // 将每个事件的时长分配到对应的小时槽
+        for (event_timestamp, duration_secs) in events {
+            let start_time = event_timestamp.with_timezone(&Local);
+            let end_time = start_time + chrono::Duration::seconds(duration_secs);
+
+            let mut current = start_time;
+            let mut remaining_seconds = duration_secs;
+
+            // 只处理当天的部分
+            while remaining_seconds > 0 && current.date_naive() == date {
+                let hour = current.hour() as usize;
+
+                if hour >= 24 {
+                    break;
+                }
+
+                // 计算当前小时的结束时间
+                let next_hour = current
+                    .with_minute(0)
+                    .and_then(|t| t.with_second(0))
+                    .and_then(|t| t.with_nanosecond(0))
+                    .unwrap()
+                    .checked_add_signed(chrono::Duration::hours(1))
+                    .unwrap();
+
+                // 计算当前小时内的时间
+                let seconds_in_this_hour = if next_hour > end_time {
+                    remaining_seconds
+                } else {
+                    let duration_in_hour = (next_hour - current).num_seconds().max(0);
+                    remaining_seconds.min(duration_in_hour as i64)
+                };
+
+                if hour < 24 && seconds_in_this_hour > 0 {
+                    hour_totals[hour] += seconds_in_this_hour;
+                }
+
+                remaining_seconds -= seconds_in_this_hour;
+                current = next_hour;
+            }
+        }
+
+        // 转换为 PeriodUsage
         for hour in 0..24 {
-            let hour_start = date
-                .and_hms_opt(hour, 0, 0)
-                .unwrap()
-                .and_local_timezone(Local)
-                .unwrap()
-                .with_timezone(&Utc);
-            let hour_end = date
-                .and_hms_opt(hour, 59, 59)
-                .unwrap()
-                .and_local_timezone(Local)
-                .unwrap()
-                .with_timezone(&Utc);
-
-            let mut stmt = conn.prepare(
-                "SELECT COALESCE(SUM(duration_secs), 0)
-                 FROM window_events
-                 WHERE timestamp >= ?1 AND timestamp <= ?2 AND is_afk = 0",
-            )?;
-
-            let total: i64 = stmt.query_row(params![hour_start, hour_end], |row| row.get(0))?;
-
             result.push(PeriodUsage {
                 label: format!("{}时", hour),
                 index: hour as i32,
-                total_seconds: total,
+                total_seconds: hour_totals[hour],
             });
         }
 
