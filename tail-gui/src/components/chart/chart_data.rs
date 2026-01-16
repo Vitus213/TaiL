@@ -236,27 +236,60 @@ impl<'a> ChartDataBuilder<'a> {
                     continue;
                 }
 
-                // 检查事件是否在时间范围内
+                // 检查事件是否在时间范围内（只检查开始时间）
                 if !self.is_event_in_range(event.timestamp) {
                     continue;
                 }
 
-                let local_time = event.timestamp.with_timezone(&Local);
-                let hour = local_time.hour() as usize;
+                // 计算事件跨越的小时范围
+                let start_time = event.timestamp.with_timezone(&Local);
+                let end_time = start_time + chrono::Duration::seconds(event.duration_secs);
 
-                if hour < slots.len() {
-                    let seconds = event.duration_secs;
-                    match self.group_mode {
-                        ChartGroupMode::ByApp => {
-                            slots[hour].add_group(usage.app_name.clone(), seconds);
-                        }
-                        ChartGroupMode::ByCategory => {
-                            let categories = self.get_app_categories(&usage.app_name);
-                            for cat in &categories {
-                                slots[hour].add_group(cat.clone(), seconds);
+                let mut current = start_time;
+                let mut remaining_seconds = event.duration_secs;
+
+                // 将事件时长分配到各个小时槽
+                while remaining_seconds > 0 && current.date_naive() == start_time.date_naive() {
+                    let hour = current.hour() as usize;
+
+                    if hour >= 24 {
+                        // 跨天了，停止分配
+                        break;
+                    }
+
+                    // 计算当前小时的结束时间
+                    let next_hour = current
+                        .with_minute(0)
+                        .and_then(|t| t.with_second(0))
+                        .and_then(|t| t.with_nanosecond(0))
+                        .unwrap()
+                        .checked_add_signed(chrono::Duration::hours(1))
+                        .unwrap();
+
+                    // 计算当前小时内的时间
+                    let seconds_in_this_hour = if next_hour > end_time {
+                        remaining_seconds
+                    } else {
+                        let duration_in_hour = (next_hour - current).num_seconds().max(0);
+                        remaining_seconds.min(duration_in_hour as i64)
+                    };
+
+                    if hour < slots.len() && seconds_in_this_hour > 0 {
+                        match self.group_mode {
+                            ChartGroupMode::ByApp => {
+                                slots[hour].add_group(usage.app_name.clone(), seconds_in_this_hour);
+                            }
+                            ChartGroupMode::ByCategory => {
+                                let categories = self.get_app_categories(&usage.app_name);
+                                for cat in &categories {
+                                    slots[hour].add_group(cat.clone(), seconds_in_this_hour);
+                                }
                             }
                         }
                     }
+
+                    remaining_seconds -= seconds_in_this_hour;
+                    current = next_hour;
                 }
             }
         }
