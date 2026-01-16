@@ -234,21 +234,41 @@ impl<'a> StatisticsView<'a> {
             return;
         }
 
-        let total_seconds: i64 = self.app_usage.iter().map(|u| u.total_seconds).sum();
+        // 只计算非 AFK 时间，与柱形图保持一致
+        let total_seconds: i64 = self
+            .app_usage
+            .iter()
+            .map(|u| {
+                u.window_events
+                    .iter()
+                    .filter(|e| !e.is_afk)
+                    .map(|e| e.duration_secs)
+                    .sum::<i64>()
+            })
+            .sum();
 
         let available_height = ui.available_height().max(200.0);
 
         // 收集应用数据以避免借用冲突，并按使用时长降序排序
+        // 只计算非 AFK 时间，与柱形图保持一致
         let mut app_data: Vec<_> = self
             .app_usage
             .iter()
+            .filter(|usage| !usage.app_name.is_empty())
             .map(|usage| {
+                let non_afk_seconds: i64 = usage
+                    .window_events
+                    .iter()
+                    .filter(|e| !e.is_afk)
+                    .map(|e| e.duration_secs)
+                    .sum();
+
                 let percentage = if total_seconds > 0 {
-                    (usage.total_seconds as f32 / total_seconds as f32) * 100.0
+                    (non_afk_seconds as f32 / total_seconds as f32) * 100.0
                 } else {
                     0.0
                 };
-                (usage.app_name.clone(), usage.total_seconds, percentage)
+                (usage.app_name.clone(), non_afk_seconds, percentage)
             })
             .collect();
 
