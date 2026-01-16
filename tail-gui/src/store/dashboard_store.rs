@@ -1,9 +1,9 @@
 //! 仪表板状态管理
 
+use crate::services::{CacheService, DataService};
 use std::sync::Arc;
 use std::time::Duration;
 use tail_core::DashboardData;
-use crate::services::{CacheService, DataService};
 
 /// 仪表板状态存储
 pub struct DashboardStore {
@@ -24,7 +24,8 @@ impl DashboardStore {
 
     /// 获取仪表板数据（使用缓存）
     pub fn get_data(&mut self) -> Result<&DashboardData, String> {
-        self.cache.get_or_refresh(|| self.data_service.get_dashboard_data_blocking())
+        self.cache
+            .get_or_refresh(|| self.data_service.get_dashboard_data_blocking())
     }
 
     /// 刷新仪表板数据
@@ -50,7 +51,12 @@ impl DashboardStore {
     pub fn get_app_count(&self) -> usize {
         self.cache
             .get()
-            .map(|d| d.app_usage.iter().filter(|u| !u.app_name.is_empty()).count())
+            .map(|d| {
+                d.app_usage
+                    .iter()
+                    .filter(|u| !u.app_name.is_empty())
+                    .count()
+            })
             .unwrap_or(0)
     }
 }

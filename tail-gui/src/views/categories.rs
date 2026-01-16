@@ -4,8 +4,11 @@ use egui::{Color32, Rounding, ScrollArea, Stroke, Ui, Vec2};
 use std::collections::HashSet;
 use tail_core::{AppUsage, AppUsageInCategory, CATEGORY_ICONS, Category, CategoryUsage};
 
+use crate::components::chart::{
+    ChartDataBuilder, ChartGroupMode, ChartTimeGranularity, StackedBarChart, StackedBarChartConfig,
+    StackedBarTooltip,
+};
 use crate::components::{EmptyState, PageHeader, SectionDivider, StatCard};
-use crate::components::chart::{ChartDataBuilder, ChartGroupMode, ChartTimeGranularity, StackedBarChart, StackedBarChartConfig, StackedBarTooltip};
 use crate::icons::ui_icons::categories as icons;
 use crate::theme::TaiLTheme;
 use crate::utils::duration;
@@ -578,12 +581,11 @@ impl CategoriesView {
                                         .on_hover_text("从此分类中移除")
                                         .clicked()
                                 {
-                                    self.pending_action = Some(
-                                        CategoryAction::RemoveAppFromCategory(
+                                    self.pending_action =
+                                        Some(CategoryAction::RemoveAppFromCategory(
                                             app.app_name.clone(),
                                             id,
-                                        ),
-                                    );
+                                        ));
                                     self.needs_refresh = true;
                                 }
                             });
@@ -883,9 +885,8 @@ impl CategoriesView {
                                 {
                                     // 选择新应用时，触发加载该应用当前的分类
                                     self.selected_app_name = Some(app_name.clone());
-                                    self.pending_action = Some(
-                                        CategoryAction::LoadAppCategories(app_name.clone()),
-                                    );
+                                    self.pending_action =
+                                        Some(CategoryAction::LoadAppCategories(app_name.clone()));
                                 }
                             }
                         });

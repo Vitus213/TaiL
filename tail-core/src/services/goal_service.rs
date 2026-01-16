@@ -1,10 +1,10 @@
 //! 目标服务实现
 
+use crate::db::pool::DbPool;
+use crate::db::repositories::DailyGoalRepositoryImpl;
 use crate::errors::{DbError, DbResult};
 use crate::models::DailyGoal;
 use crate::traits::DailyGoalRepository;
-use crate::db::repositories::DailyGoalRepositoryImpl;
-use crate::db::pool::DbPool;
 use async_trait::async_trait;
 
 /// 目标进度

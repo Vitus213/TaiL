@@ -1,9 +1,9 @@
 //! 分类仓储实现
 
+use crate::db::pool::DbPool;
 use crate::errors::{DbError, DbResult};
 use crate::models::{AppUsageInCategory, Category, CategoryUsage};
 use crate::traits::CategoryRepository;
-use crate::db::pool::DbPool;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use rusqlite::params;
@@ -218,7 +218,8 @@ impl CategoryRepositoryImpl {
             let mut stmt = conn.prepare(&query)?;
 
             // 构建参数
-            let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(start), Box::new(end)];
+            let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> =
+                vec![Box::new(start), Box::new(end)];
             for app in &apps {
                 params_vec.push(Box::new(app.clone()));
             }
@@ -332,11 +333,7 @@ impl CategoryRepository for CategoryRepositoryImpl {
             .map_err(|e| DbError::Validation(format!("Task join error: {}", e)))?
     }
 
-    async fn remove_app_from_category(
-        &self,
-        app_name: &str,
-        category_id: i64,
-    ) -> DbResult<()> {
+    async fn remove_app_from_category(&self, app_name: &str, category_id: i64) -> DbResult<()> {
         let repo = self.clone();
         let app_name = app_name.to_string();
         tokio::task::spawn_blocking(move || {

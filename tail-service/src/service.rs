@@ -4,8 +4,8 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use std::time::Instant;
 use tail_afk::{AfkDetector, AfkState};
-use tail_core::{db::Config as DbConfig, Repository, WindowEvent};
 use tail_core::traits::WindowEventRepository;
+use tail_core::{db::Config as DbConfig, Repository, WindowEvent};
 use tail_hyprland::{HyprlandEvent, HyprlandIpc};
 use tokio::sync::mpsc;
 use tokio::time::{interval, Duration};
@@ -229,8 +229,10 @@ impl TailService {
                     match WindowEventRepository::update_duration(
                         &self.repo,
                         event_id,
-                        duration_secs
-                    ).await {
+                        duration_secs,
+                    )
+                    .await
+                    {
                         Ok(_) => {
                             info!(
                                 app_name = %prev_window.app_name,
@@ -314,7 +316,8 @@ impl TailService {
 
             if duration_secs > 0 {
                 if let Some(event_id) = window.event_id {
-                    WindowEventRepository::update_duration(&self.repo, event_id, duration_secs).await?;
+                    WindowEventRepository::update_duration(&self.repo, event_id, duration_secs)
+                        .await?;
                     debug!(
                         "Updated current window duration: {} ({} seconds)",
                         window.app_name, duration_secs

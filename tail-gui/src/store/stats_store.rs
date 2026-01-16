@@ -1,10 +1,10 @@
 //! 统计页面状态管理
 
-use std::sync::Arc;
-use std::time::Duration;
-use tail_core::{models::TimeNavigationState, StatsData};
 use crate::services::{CacheService, DataService};
 use chrono::Datelike;
+use std::sync::Arc;
+use std::time::Duration;
+use tail_core::{StatsData, models::TimeNavigationState};
 
 /// 统计页面状态存储
 pub struct StatsStore {

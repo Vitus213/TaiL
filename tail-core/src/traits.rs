@@ -104,11 +104,7 @@ pub trait CategoryRepository: Send + Sync {
     async fn add_app_to_category(&self, app_name: &str, category_id: i64) -> DbResult<()>;
 
     /// 从分类中移除应用
-    async fn remove_app_from_category(
-        &self,
-        app_name: &str,
-        category_id: i64,
-    ) -> DbResult<()>;
+    async fn remove_app_from_category(&self, app_name: &str, category_id: i64) -> DbResult<()>;
 
     /// 设置应用的分类（替换所有现有分类）
     async fn set_app_categories(&self, app_name: &str, category_ids: &[i64]) -> DbResult<()>;
@@ -184,10 +180,6 @@ pub trait TimeStatsQuery: Send + Sync {
     ) -> DbResult<Vec<PeriodUsage>>;
 
     /// 获取某天按小时汇总的使用统计
-    async fn get_hourly_usage(
-        &self,
-        year: i32,
-        month: u32,
-        day: u32,
-    ) -> DbResult<Vec<PeriodUsage>>;
+    async fn get_hourly_usage(&self, year: i32, month: u32, day: u32)
+        -> DbResult<Vec<PeriodUsage>>;
 }

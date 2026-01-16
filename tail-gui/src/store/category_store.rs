@@ -1,9 +1,9 @@
 //! 分类页面状态管理
 
+use crate::services::{CacheService, DataService};
 use std::sync::Arc;
 use std::time::Duration;
 use tail_core::CategoryManagementData;
-use crate::services::{CacheService, DataService};
 
 /// 分类页面状态存储
 pub struct CategoryStore {

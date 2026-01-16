@@ -1,8 +1,8 @@
 //! 数据服务 - 封装异步数据查询
 
 use std::sync::Arc;
+use tail_core::{CategoryManagementData, DashboardData, GoalProgress, StatsData, services::*};
 use tokio::runtime::Handle;
-use tail_core::{services::*, DashboardData, StatsData, CategoryManagementData, GoalProgress};
 
 /// GUI 数据服务入口
 pub struct DataService {
@@ -67,7 +67,10 @@ impl DataService {
         end: chrono::DateTime<chrono::Utc>,
     ) -> Result<CategoryManagementData, String> {
         self.runtime
-            .block_on(self.category_service.get_category_management_data(start, end))
+            .block_on(
+                self.category_service
+                    .get_category_management_data(start, end),
+            )
             .map_err(|e| e.to_string())
     }
 

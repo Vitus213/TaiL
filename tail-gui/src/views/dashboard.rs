@@ -3,10 +3,13 @@
 use egui::{ScrollArea, Ui};
 use tail_core::AppUsage;
 
+use crate::components::chart::{
+    ChartDataBuilder, ChartGroupMode, ChartTimeGranularity, StackedBarChart, StackedBarChartConfig,
+    StackedBarTooltip,
+};
 use crate::components::{
     AppCard, EmptyState, EnhancedProgressBar, PageHeader, SectionDivider, StatCard,
 };
-use crate::components::chart::{ChartDataBuilder, ChartGroupMode, ChartTimeGranularity, StackedBarChart, StackedBarChartConfig, StackedBarTooltip};
 use crate::icons::IconCache;
 use crate::theme::TaiLTheme;
 use crate::utils::duration;
@@ -104,7 +107,7 @@ impl<'a> DashboardView<'a> {
                 .with_subtitle_option(
                     (total_seconds > 0)
                         .then(|| format!("生产力 {}%", productivity_score))
-                        .as_deref()
+                        .as_deref(),
                 ),
             );
 
@@ -183,7 +186,10 @@ impl<'a> DashboardView<'a> {
 
     /// 显示堆叠柱状图
     fn show_stacked_chart(&mut self, ui: &mut Ui) {
-        eprintln!("[DEBUG] dashboard - app_usage.len()={}", self.app_usage.len());
+        eprintln!(
+            "[DEBUG] dashboard - app_usage.len()={}",
+            self.app_usage.len()
+        );
 
         // 使用新的图表数据构建器
         let chart_data = ChartDataBuilder::new(self.app_usage)
@@ -191,8 +197,12 @@ impl<'a> DashboardView<'a> {
             .with_group_mode(ChartGroupMode::ByApp)
             .build();
 
-        eprintln!("[DEBUG] dashboard - chart_data.time_slots.len()={}, max_seconds={}, total_seconds={}",
-            chart_data.time_slots.len(), chart_data.max_seconds(), chart_data.total_seconds);
+        eprintln!(
+            "[DEBUG] dashboard - chart_data.time_slots.len()={}, max_seconds={}, total_seconds={}",
+            chart_data.time_slots.len(),
+            chart_data.max_seconds(),
+            chart_data.total_seconds
+        );
 
         if chart_data.time_slots.iter().all(|s| s.total_seconds == 0) {
             ui.add(EmptyState::new(

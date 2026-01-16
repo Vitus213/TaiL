@@ -1,9 +1,9 @@
 //! 每日目标仓储实现
 
+use crate::db::pool::DbPool;
 use crate::errors::{DbError, DbResult};
 use crate::models::DailyGoal;
 use crate::traits::DailyGoalRepository;
-use crate::db::pool::DbPool;
 use async_trait::async_trait;
 use chrono::{Local, Utc};
 use rusqlite::params;

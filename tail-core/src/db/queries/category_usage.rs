@@ -1,10 +1,10 @@
 //! 分类使用查询实现
 
+use crate::db::pool::DbPool;
+use crate::db::repositories::CategoryRepositoryImpl;
 use crate::errors::{DbError, DbResult};
 use crate::models::CategoryUsage;
 use crate::traits::CategoryUsageQuery;
-use crate::db::repositories::CategoryRepositoryImpl;
-use crate::db::pool::DbPool;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use std::sync::Arc;

@@ -1,9 +1,9 @@
 //! 时间统计查询实现
 
+use crate::db::pool::DbPool;
 use crate::errors::{DbError, DbResult};
 use crate::models::PeriodUsage;
 use crate::traits::TimeStatsQuery;
-use crate::db::pool::DbPool;
 use async_trait::async_trait;
 use chrono::{Datelike, Local, NaiveDate, Utc};
 use rusqlite::params;

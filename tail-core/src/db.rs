@@ -3,8 +3,8 @@
 //! 提供模块化的数据库访问层，通过仓储模式和服务层实现高内聚低耦合。
 
 pub mod pool;
-pub mod repositories;
 pub mod queries;
+pub mod repositories;
 
 use pool::{create_pool, init_schema};
 use std::sync::Arc;
@@ -114,7 +114,9 @@ impl crate::traits::WindowEventRepository for Repository {
     }
 
     async fn update_duration(&self, id: i64, duration_secs: i64) -> crate::errors::DbResult<()> {
-        self.window_events().update_duration(id, duration_secs).await
+        self.window_events()
+            .update_duration(id, duration_secs)
+            .await
     }
 }
 
@@ -130,7 +132,9 @@ impl crate::traits::AfkEventRepository for Repository {
         end_time: chrono::DateTime<chrono::Utc>,
         duration_secs: i64,
     ) -> crate::errors::DbResult<()> {
-        self.afk_events().update_end(id, end_time, duration_secs).await
+        self.afk_events()
+            .update_end(id, end_time, duration_secs)
+            .await
     }
 
     async fn get_by_time_range(
@@ -199,7 +203,9 @@ impl crate::traits::CategoryRepository for Repository {
         app_name: &str,
         category_id: i64,
     ) -> crate::errors::DbResult<()> {
-        self.categories().add_app_to_category(app_name, category_id).await
+        self.categories()
+            .add_app_to_category(app_name, category_id)
+            .await
     }
 
     async fn remove_app_from_category(

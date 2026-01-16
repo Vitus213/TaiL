@@ -48,8 +48,7 @@ impl<'a> TimeNavigationController<'a> {
 
             // 快捷时间范围按钮
             // 今天按钮
-            let is_today = self.state.level == TimeNavigationLevel::Hour
-                && self.is_current_today();
+            let is_today = self.state.level == TimeNavigationLevel::Hour && self.is_current_today();
             if ui
                 .selectable_label(
                     is_today,
@@ -68,8 +67,8 @@ impl<'a> TimeNavigationController<'a> {
             }
 
             // 本周按钮
-            let is_this_week = self.state.level == TimeNavigationLevel::Day
-                && self.is_current_week();
+            let is_this_week =
+                self.state.level == TimeNavigationLevel::Day && self.is_current_week();
             if ui
                 .selectable_label(
                     is_this_week,
@@ -88,8 +87,8 @@ impl<'a> TimeNavigationController<'a> {
             }
 
             // 本月按钮
-            let is_this_month = self.state.level == TimeNavigationLevel::Week
-                && self.is_current_month();
+            let is_this_month =
+                self.state.level == TimeNavigationLevel::Week && self.is_current_month();
             if ui
                 .selectable_label(
                     is_this_month,
@@ -108,8 +107,8 @@ impl<'a> TimeNavigationController<'a> {
             }
 
             // 本年按钮
-            let is_this_year = self.state.level == TimeNavigationLevel::Month
-                && self.is_current_year();
+            let is_this_year =
+                self.state.level == TimeNavigationLevel::Month && self.is_current_year();
             if ui
                 .selectable_label(
                     is_this_year,
@@ -174,15 +173,13 @@ impl<'a> TimeNavigationController<'a> {
     /// 检查是否是当前周
     fn is_current_week(&self) -> bool {
         let now = Local::now();
-        self.state.selected_year == now.year()
-            && self.state.selected_month == Some(now.month())
+        self.state.selected_year == now.year() && self.state.selected_month == Some(now.month())
     }
 
     /// 检查是否是当前月
     fn is_current_month(&self) -> bool {
         let now = Local::now();
-        self.state.selected_year == now.year()
-            && self.state.selected_month == Some(now.month())
+        self.state.selected_year == now.year() && self.state.selected_month == Some(now.month())
     }
 
     /// 检查是否是当前年

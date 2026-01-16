@@ -30,10 +30,7 @@ pub struct AfkDetector {
 impl AfkDetector {
     /// 创建新的 AFK 检测器
     pub fn new(timeout_secs: u64) -> Self {
-        debug!(
-            timeout_secs = timeout_secs,
-            "创建 AFK 检测器"
-        );
+        debug!(timeout_secs = timeout_secs, "创建 AFK 检测器");
         Self {
             timeout: Duration::from_secs(timeout_secs),
             last_activity: Instant::now(),

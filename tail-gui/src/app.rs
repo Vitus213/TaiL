@@ -2,18 +2,20 @@
 
 use chrono::{DateTime, Datelike, Duration as ChronoDuration, Local, Utc};
 use std::sync::Arc;
-use tail_core::models::{TimeNavigationState, TimeRange};
-use tail_core::{AppUsage, DailyGoal, Repository};
 use tail_core::db::Config as DbConfig;
-use tail_core::traits::{AppUsageQuery, DailyGoalRepository, AliasRepository, CategoryRepository, CategoryUsageQuery};
+use tail_core::models::{TimeNavigationState, TimeRange};
+use tail_core::traits::{
+    AliasRepository, AppUsageQuery, CategoryRepository, CategoryUsageQuery, DailyGoalRepository,
+};
+use tail_core::{AppUsage, DailyGoal, Repository};
 use tracing::{debug, info};
 
 use crate::components::{AliasDialog, NavigationMode, SidebarNav, TopTabNav, View};
 use crate::icons::IconCache;
 use crate::theme::{TaiLTheme, ThemeType};
 use crate::views::{
-    AddGoalDialog, CategoriesView, CategoryAction, DashboardView, DetailsView,
-    SettingsAction, SettingsView, StatisticsView,
+    AddGoalDialog, CategoriesView, CategoryAction, DashboardView, DetailsView, SettingsAction,
+    SettingsView, StatisticsView,
 };
 
 /// TaiL GUI 应用
@@ -169,9 +171,10 @@ impl TaiLApp {
         }
 
         // 刷新每日目标
-        match self.runtime.block_on(async {
-            DailyGoalRepository::get_all(&self.repo.goal_service()).await
-        }) {
+        match self
+            .runtime
+            .block_on(async { DailyGoalRepository::get_all(&self.repo.goal_service()).await })
+        {
             Ok(goals) => {
                 self.daily_goals_cache = goals;
             }
@@ -207,10 +210,7 @@ impl TaiLApp {
             AppUsageQuery::get_app_usage(&self.repo.usage_service(), start, end).await
         }) {
             Ok(usage) => {
-                debug!(
-                    count = usage.len(),
-                    "统计数据获取成功"
-                );
+                debug!(count = usage.len(), "统计数据获取成功");
                 for (i, u) in usage.iter().take(3).enumerate() {
                     debug!(
                         index = i,
@@ -323,9 +323,13 @@ impl TaiLApp {
     /// 删除每日目标
     fn delete_daily_goal(&mut self, app_name: &str) {
         let app_name = app_name.to_string();
-        if self.runtime.block_on(async {
-            DailyGoalRepository::delete(&self.repo.goal_service(), &app_name).await
-        }).is_ok() {
+        if self
+            .runtime
+            .block_on(async {
+                DailyGoalRepository::delete(&self.repo.goal_service(), &app_name).await
+            })
+            .is_ok()
+        {
             self.daily_goals_cache.retain(|g| g.app_name != app_name);
         }
     }
@@ -334,9 +338,9 @@ impl TaiLApp {
     fn set_app_alias(&mut self, app_name: String, alias: String) {
         if alias.is_empty() {
             // 删除别名
-            let _ = self.runtime.block_on(async {
-                AliasRepository::delete(&self.repo.aliases(), &app_name).await
-            });
+            let _ = self
+                .runtime
+                .block_on(async { AliasRepository::delete(&self.repo.aliases(), &app_name).await });
         } else {
             let _ = self.runtime.block_on(async {
                 AliasRepository::set(&self.repo.aliases(), &app_name, &alias).await
@@ -346,9 +350,10 @@ impl TaiLApp {
 
     /// 打开别名管理对话框
     fn open_alias_management(&mut self) {
-        if let Ok(aliases) = self.runtime.block_on(async {
-            AliasRepository::get_all(&self.repo.aliases()).await
-        }) {
+        if let Ok(aliases) = self
+            .runtime
+            .block_on(async { AliasRepository::get_all(&self.repo.aliases()).await })
+        {
             self.alias_dialog.open_for_management(aliases);
         }
     }
@@ -372,17 +377,22 @@ impl TaiLApp {
         // 加载所有应用名称
         let all_apps = self
             .runtime
-            .block_on(async { CategoryRepository::get_all_app_names(&self.repo.category_service()).await })
+            .block_on(async {
+                CategoryRepository::get_all_app_names(&self.repo.category_service()).await
+            })
             .unwrap_or_default();
 
         // 加载应用使用数据（用于堆叠柱形图）
         let app_usage = self
             .runtime
-            .block_on(async { AppUsageQuery::get_app_usage(&self.repo.usage_service(), start, end).await })
+            .block_on(async {
+                AppUsageQuery::get_app_usage(&self.repo.usage_service(), start, end).await
+            })
             .unwrap_or_default();
 
         // 将数据加载到视图
-        self.categories_view.load_data(category_usage, categories, all_apps, app_usage);
+        self.categories_view
+            .load_data(category_usage, categories, all_apps, app_usage);
     }
 
     /// 处理分类视图操作
@@ -405,17 +415,28 @@ impl TaiLApp {
             }
             CategoryAction::SetAppCategories(app_name, category_ids) => {
                 let _ = self.runtime.block_on(async {
-                    CategoryRepository::set_app_categories(&self.repo.category_service(), &app_name, &category_ids).await
+                    CategoryRepository::set_app_categories(
+                        &self.repo.category_service(),
+                        &app_name,
+                        &category_ids,
+                    )
+                    .await
                 });
             }
             CategoryAction::RemoveAppFromCategory(app_name, category_id) => {
                 let _ = self.runtime.block_on(async {
-                    CategoryRepository::remove_app_from_category(&self.repo.category_service(), &app_name, category_id).await
+                    CategoryRepository::remove_app_from_category(
+                        &self.repo.category_service(),
+                        &app_name,
+                        category_id,
+                    )
+                    .await
                 });
             }
             CategoryAction::LoadAppCategories(app_name) => {
                 if let Ok(categories) = self.runtime.block_on(async {
-                    CategoryRepository::get_app_categories(&self.repo.category_service(), &app_name).await
+                    CategoryRepository::get_app_categories(&self.repo.category_service(), &app_name)
+                        .await
                 }) {
                     let category_ids: Vec<i64> = categories.iter().filter_map(|c| c.id).collect();
                     self.categories_view.set_app_categories(category_ids);
@@ -546,7 +567,8 @@ impl eframe::App for TaiLApp {
                     View::Details => {
                         // 更新数据并显示持久化的详细视图
                         self.details_view.update_data(&self.dashboard_usage_cache);
-                        self.details_view.show(ui, &self.theme, &mut self.icon_cache);
+                        self.details_view
+                            .show(ui, &self.theme, &mut self.icon_cache);
                     }
                     View::Settings => {
                         let view = SettingsView::new(

@@ -1,10 +1,10 @@
 //! 分类服务实现
 
+use crate::db::pool::DbPool;
+use crate::db::repositories::CategoryRepositoryImpl;
 use crate::errors::DbResult;
 use crate::models::{Category, CategoryUsage};
 use crate::traits::CategoryRepository;
-use crate::db::repositories::CategoryRepositoryImpl;
-use crate::db::pool::DbPool;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
@@ -39,9 +39,7 @@ impl CategoryServiceImpl {
         end: DateTime<Utc>,
     ) -> DbResult<CategoryManagementData> {
         let categories = self.category_repo.get_all().await?;
-        let category_usage = self
-            .category_repo
-            .get_category_usage_sync(start, end)?;
+        let category_usage = self.category_repo.get_category_usage_sync(start, end)?;
         let all_app_names = self.category_repo.get_all_app_names().await?;
 
         Ok(CategoryManagementData {
@@ -83,14 +81,12 @@ impl CategoryRepository for CategoryServiceImpl {
     }
 
     async fn add_app_to_category(&self, app_name: &str, category_id: i64) -> DbResult<()> {
-        self.category_repo.add_app_to_category(app_name, category_id).await
+        self.category_repo
+            .add_app_to_category(app_name, category_id)
+            .await
     }
 
-    async fn remove_app_from_category(
-        &self,
-        app_name: &str,
-        category_id: i64,
-    ) -> DbResult<()> {
+    async fn remove_app_from_category(&self, app_name: &str, category_id: i64) -> DbResult<()> {
         self.category_repo
             .remove_app_from_category(app_name, category_id)
             .await

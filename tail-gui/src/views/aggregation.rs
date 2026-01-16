@@ -149,8 +149,13 @@ impl<'a> DataAggregator<'a> {
     fn aggregate_by_day(&self, year: i32, month: u32, day: u32) -> Vec<PeriodUsage> {
         let mut hourly_usage: HashMap<u32, i64> = HashMap::new();
 
-        eprintln!("[DEBUG] aggregate_by_day - year={}, month={}, day={}, app_usage.len()={}",
-            year, month, day, self.app_usage.len());
+        eprintln!(
+            "[DEBUG] aggregate_by_day - year={}, month={}, day={}, app_usage.len()={}",
+            year,
+            month,
+            day,
+            self.app_usage.len()
+        );
 
         for usage in self.app_usage {
             for event in &usage.window_events {
@@ -167,8 +172,11 @@ impl<'a> DataAggregator<'a> {
         }
 
         let total_hours: i64 = hourly_usage.values().sum();
-        eprintln!("[DEBUG] aggregate_by_day - hourly_usage.len()={}, total_hours={}",
-            hourly_usage.len(), total_hours);
+        eprintln!(
+            "[DEBUG] aggregate_by_day - hourly_usage.len()={}, total_hours={}",
+            hourly_usage.len(),
+            total_hours
+        );
 
         (0..24)
             .map(|hour| PeriodUsage {

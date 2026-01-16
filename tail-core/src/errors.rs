@@ -1,7 +1,7 @@
 //! TaiL Core - 统一错误类型
 
-use rusqlite::Error as SqliteError;
 use r2d2::Error as PoolError;
+use rusqlite::Error as SqliteError;
 
 /// 数据库错误类型
 #[derive(Debug, thiserror::Error)]

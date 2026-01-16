@@ -71,10 +71,7 @@ impl<'a> StackedBarChart<'a> {
         let mut hovered_slot = None;
 
         // 计算最大时长（用于归一化柱子高度）
-        let max_seconds = self
-            .data
-            .max_seconds()
-            .max(60); // 最少1分钟作为最大值
+        let max_seconds = self.data.max_seconds().max(60); // 最少1分钟作为最大值
 
         // Y 轴刻度配置
         let y_axis_width = if self.config.show_y_axis { 45.0 } else { 0.0 };
@@ -111,7 +108,8 @@ impl<'a> StackedBarChart<'a> {
         // 根据时间粒度确定柱子宽度
         let (bar_width, bar_gap) = self.calculate_bar_sizes();
 
-        let total_chart_width = y_axis_width + bar_width * self.data.time_slots.len() as f32
+        let total_chart_width = y_axis_width
+            + bar_width * self.data.time_slots.len() as f32
             + bar_gap * (self.data.time_slots.len() as f32 - 1.0);
 
         ui.vertical(|ui| {
@@ -147,7 +145,16 @@ impl<'a> StackedBarChart<'a> {
 
                 // 绘制水平网格线
                 if self.config.show_grid_lines {
-                    self.draw_grid_lines(ui, y_axis_start_x, chart_start_y, chart_height, bar_width, bar_gap, &y_ticks, y_tick_count as usize);
+                    self.draw_grid_lines(
+                        ui,
+                        y_axis_start_x,
+                        chart_start_y,
+                        chart_height,
+                        bar_width,
+                        bar_gap,
+                        &y_ticks,
+                        y_tick_count as usize,
+                    );
                 }
 
                 // 绘制柱子
@@ -172,7 +179,14 @@ impl<'a> StackedBarChart<'a> {
             });
 
             // 在水平布局外绘制 X 轴标签（确保在柱形图下方）
-            self.show_x_axis(ui, y_axis_start_x, chart_start_y, chart_height, bar_width, bar_gap);
+            self.show_x_axis(
+                ui,
+                y_axis_start_x,
+                chart_start_y,
+                chart_height,
+                bar_width,
+                bar_gap,
+            );
         });
 
         hovered_slot
@@ -208,11 +222,7 @@ impl<'a> StackedBarChart<'a> {
                 ui.horizontal(|ui| {
                     let size = Vec2::new(12.0, 12.0);
                     let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
-                    ui.painter().rect_filled(
-                        rect,
-                        Rounding::same(3.0),
-                        color,
-                    );
+                    ui.painter().rect_filled(rect, Rounding::same(3.0), color);
                     ui.add_space(6.0);
 
                     ui.label(
@@ -315,7 +325,7 @@ impl<'a> StackedBarChart<'a> {
         // 柱子从底部向上：y = 底部位置 - 柱子高度
         let x = start_x + idx as f32 * (bar_width + bar_gap);
         let bottom_y = start_y + chart_height; // 底部Y坐标
-        let top_y = bottom_y - bar_height;     // 顶部Y坐标
+        let top_y = bottom_y - bar_height; // 顶部Y坐标
         let rect = Rect::from_min_size(Pos2::new(x, top_y), Vec2::new(bar_width, bar_height));
 
         let response = ui.allocate_rect(rect, Sense::hover());
@@ -338,8 +348,7 @@ impl<'a> StackedBarChart<'a> {
                     }
 
                     // 该应用段的高度 = (该应用时长 / 总时长) * 柱子高度
-                    let segment_height =
-                        (seconds as f32 / slot.total_seconds as f32) * bar_height;
+                    let segment_height = (seconds as f32 / slot.total_seconds as f32) * bar_height;
                     let segment_top_y = current_y - segment_height;
 
                     let color = group_colors
@@ -357,11 +366,7 @@ impl<'a> StackedBarChart<'a> {
                 }
             } else {
                 // 空柱子，绘制浅灰色背景
-                painter.rect_filled(
-                    rect,
-                    Rounding::same(2.0),
-                    self.theme.progress_background,
-                );
+                painter.rect_filled(rect, Rounding::same(2.0), self.theme.progress_background);
             }
 
             // 悬停效果（可选）
@@ -380,7 +385,15 @@ impl<'a> StackedBarChart<'a> {
     }
 
     /// 显示 X 轴标签
-    fn show_x_axis(&self, ui: &mut Ui, start_x: f32, start_y: f32, chart_height: f32, bar_width: f32, bar_gap: f32) {
+    fn show_x_axis(
+        &self,
+        ui: &mut Ui,
+        start_x: f32,
+        start_y: f32,
+        chart_height: f32,
+        bar_width: f32,
+        bar_gap: f32,
+    ) {
         // X轴标签在柱形图底部下方
         let bottom_y = start_y + chart_height;
         let label_y = bottom_y + 8.0; // 标签与柱形图底部之间的间距
@@ -390,8 +403,11 @@ impl<'a> StackedBarChart<'a> {
         // 根据时间粒度决定显示哪些标签
         let label_indices = self.get_label_indices(self.data.time_slots.len());
 
-        eprintln!("[DEBUG] show_x_axis - label_indices.len()={}, granularity={:?}",
-            label_indices.len(), self.data.granularity);
+        eprintln!(
+            "[DEBUG] show_x_axis - label_indices.len()={}, granularity={:?}",
+            label_indices.len(),
+            self.data.granularity
+        );
 
         for &idx in &label_indices {
             if let Some(slot) = self.data.time_slots.get(idx) {
@@ -488,11 +504,7 @@ impl<'a> StackedBarTooltip<'a> {
 
                 let painter = ui.painter();
                 let bg_rect = Rect::from_min_size(Pos2::ZERO, rect.size());
-                painter.rect_filled(
-                    bg_rect,
-                    Rounding::same(8.0),
-                    Color32::from_black_alpha(230),
-                );
+                painter.rect_filled(bg_rect, Rounding::same(8.0), Color32::from_black_alpha(230));
                 painter.rect_stroke(
                     bg_rect,
                     Rounding::same(8.0),

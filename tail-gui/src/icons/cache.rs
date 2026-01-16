@@ -485,10 +485,7 @@ impl<'a> AppIcon<'a> {
         } else {
             // 使用 egui 内置 emoji 作为后备（避免自定义白色框）
             let emoji = icon_cache.get_emoji(self.app_name);
-            ui.label(
-                egui::RichText::new(emoji)
-                    .size(self.size)
-            )
+            ui.label(egui::RichText::new(emoji).size(self.size))
         }
     }
 }

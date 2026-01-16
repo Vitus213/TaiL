@@ -1,7 +1,7 @@
 //! 应用状态管理
 
-use std::sync::Arc;
 use crate::services::DataService;
+use std::sync::Arc;
 
 /// 应用状态存储
 pub struct AppStore {

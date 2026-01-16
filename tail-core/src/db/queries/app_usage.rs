@@ -1,10 +1,10 @@
 //! 应用使用查询实现
 
+use crate::db::pool::DbPool;
+use crate::db::repositories::WindowEventRepositoryImpl;
 use crate::errors::{DbError, DbResult};
 use crate::models::AppUsage;
 use crate::traits::AppUsageQuery;
-use crate::db::pool::DbPool;
-use crate::db::repositories::WindowEventRepositoryImpl;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use std::sync::Arc;

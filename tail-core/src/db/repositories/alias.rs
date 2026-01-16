@@ -1,7 +1,7 @@
 //! 别名仓储实现
 
-use crate::errors::{DbError, DbResult};
 use crate::db::pool::DbPool;
+use crate::errors::{DbError, DbResult};
 use crate::traits::AliasRepository;
 use async_trait::async_trait;
 use rusqlite::params;

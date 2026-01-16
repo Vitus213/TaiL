@@ -4,14 +4,17 @@ use chrono::{Datelike, Local, Utc};
 use egui::{Color32, Rect, Rounding, Ui, Vec2};
 use egui_extras::{Column, TableBuilder};
 use tail_core::AppUsage;
-use tail_core::models::TimeRange;
 use tail_core::TimeNavigationState;
+use tail_core::models::TimeRange;
 
+use crate::components::chart::{
+    ChartDataBuilder, ChartGroupMode, ChartTimeGranularity, StackedBarChart, StackedBarChartConfig,
+    StackedBarTooltip,
+};
 use crate::components::{
-    EmptyState, HierarchicalBarChart, PageHeader, SectionDivider, QuickTimeRange,
+    EmptyState, HierarchicalBarChart, PageHeader, QuickTimeRange, SectionDivider,
     TimeNavigationController,
 };
-use crate::components::chart::{ChartDataBuilder, ChartGroupMode, ChartTimeGranularity, StackedBarChart, StackedBarChartConfig, StackedBarTooltip};
 use crate::icons::IconCache;
 use crate::theme::TaiLTheme;
 use crate::utils::duration;
@@ -75,7 +78,8 @@ impl<'a> StatisticsView<'a> {
             match quick {
                 QuickTimeRange::Today => {
                     // 今天 - 显示24小时
-                    self.navigation_state.go_to_today(now.year(), now.month(), now.day());
+                    self.navigation_state
+                        .go_to_today(now.year(), now.month(), now.day());
                     new_time_range = Some(TimeRange::Today);
                 }
                 QuickTimeRange::ThisWeek => {
@@ -90,8 +94,11 @@ impl<'a> StatisticsView<'a> {
                     // 使用本周的时间范围（从周一开始）
                     let weekday = now.date_naive().weekday().num_days_from_monday();
                     let week_start = now.date_naive() - chrono::Duration::days(weekday as i64);
-                    let week_start_dt = week_start.and_hms_opt(0, 0, 0).unwrap()
-                        .and_local_timezone(Local).unwrap()
+                    let week_start_dt = week_start
+                        .and_hms_opt(0, 0, 0)
+                        .unwrap()
+                        .and_local_timezone(Local)
+                        .unwrap()
                         .with_timezone(&Utc);
                     let week_end = week_start_dt + chrono::Duration::days(7);
                     new_time_range = Some(TimeRange::Custom(week_start_dt, week_end));
@@ -144,7 +151,10 @@ impl<'a> StatisticsView<'a> {
 
         ui.add_space(self.theme.spacing / 2.0);
 
-        eprintln!("[DEBUG] 准备显示图表, use_stacked_view={}", self.use_stacked_view);
+        eprintln!(
+            "[DEBUG] 准备显示图表, use_stacked_view={}",
+            self.use_stacked_view
+        );
 
         // 层级柱形图或堆叠柱形图
         if self.use_stacked_view {
@@ -160,11 +170,16 @@ impl<'a> StatisticsView<'a> {
             let aggregator = DataAggregator::new(self.app_usage);
             let periods = aggregator.aggregate(self.navigation_state);
 
-            eprintln!("[DEBUG] 统计视图 - 聚合数据: level={:?}, periods.len()={}",
-                self.navigation_state.level, periods.len());
+            eprintln!(
+                "[DEBUG] 统计视图 - 聚合数据: level={:?}, periods.len()={}",
+                self.navigation_state.level,
+                periods.len()
+            );
             for (i, period) in periods.iter().enumerate().take(5) {
-                eprintln!("[DEBUG] 统计视图 - Period[{}]: label={}, total_seconds={}",
-                    i, period.label, period.total_seconds);
+                eprintln!(
+                    "[DEBUG] 统计视图 - Period[{}]: label={}, total_seconds={}",
+                    i, period.label, period.total_seconds
+                );
             }
 
             let chart =
@@ -406,8 +421,12 @@ impl<'a> StatisticsView<'a> {
             }
         };
 
-        eprintln!("[DEBUG] show_stacked_chart - level={:?}, granularity={:?}, app_usage.len()={}",
-            self.navigation_state.level, granularity, self.app_usage.len());
+        eprintln!(
+            "[DEBUG] show_stacked_chart - level={:?}, granularity={:?}, app_usage.len()={}",
+            self.navigation_state.level,
+            granularity,
+            self.app_usage.len()
+        );
 
         // 如果数据为空，显示空状态而不是尝试构建图表
         if self.app_usage.is_empty() {
@@ -425,8 +444,11 @@ impl<'a> StatisticsView<'a> {
             .with_group_mode(ChartGroupMode::ByApp)
             .build();
 
-        eprintln!("[DEBUG] show_stacked_chart - chart_data.time_slots.len()={}, max_seconds={}",
-            chart_data.time_slots.len(), chart_data.max_seconds());
+        eprintln!(
+            "[DEBUG] show_stacked_chart - chart_data.time_slots.len()={}, max_seconds={}",
+            chart_data.time_slots.len(),
+            chart_data.max_seconds()
+        );
 
         if chart_data.time_slots.is_empty() {
             ui.label("暂无数据");
@@ -444,13 +466,19 @@ impl<'a> StatisticsView<'a> {
 
         eprintln!("[DEBUG] show_stacked_chart - 开始调用 chart.show()");
         self.hovered_slot = chart.show(ui);
-        eprintln!("[DEBUG] show_stacked_chart - chart.show() 返回, hovered_slot={:?}", self.hovered_slot);
+        eprintln!(
+            "[DEBUG] show_stacked_chart - chart.show() 返回, hovered_slot={:?}",
+            self.hovered_slot
+        );
 
         // 显示悬停提示
         if let Some(idx) = self.hovered_slot
             && let Some(slot) = chart_data.time_slots.get(idx)
         {
-            eprintln!("[DEBUG] show_stacked_chart - 显示 tooltip, idx={}, label={}", idx, slot.label);
+            eprintln!(
+                "[DEBUG] show_stacked_chart - 显示 tooltip, idx={}, label={}",
+                idx, slot.label
+            );
             let tooltip = StackedBarTooltip::new(slot);
             tooltip.show(ui, self.theme);
         }

@@ -95,7 +95,11 @@ fn find_font_file(filename: &str) -> Option<std::path::PathBuf> {
 }
 
 /// 递归查找字体文件
-fn recursive_find(dir: &std::path::Path, filename: &str, max_depth: usize) -> std::io::Result<std::path::PathBuf> {
+fn recursive_find(
+    dir: &std::path::Path,
+    filename: &str,
+    max_depth: usize,
+) -> std::io::Result<std::path::PathBuf> {
     let entries = std::fs::read_dir(dir)?;
 
     for entry in entries {
@@ -109,12 +113,16 @@ fn recursive_find(dir: &std::path::Path, filename: &str, max_depth: usize) -> st
             }
         } else if path.is_file()
             && let Some(name) = path.file_name()
-                && name == filename {
-                    return Ok(path);
-                }
+            && name == filename
+        {
+            return Ok(path);
+        }
     }
 
-    Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Font not found"))
+    Err(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "Font not found",
+    ))
 }
 
 /// 设置自定义字体
@@ -155,13 +163,10 @@ pub fn setup_fonts(ctx: &Context) {
 
     // 加载 LXGW WenKai 字体（用于中文显示）
     let lxgw_path = find_font_file("LXGWWenKai-Regular.ttf");
-    fonts
-        .font_data
-        .insert("lxgw".to_owned(), load_font_or_fallback(
-            lxgw_path.as_deref(),
-            LXGW,
-            "LXGW WenKai",
-        ));
+    fonts.font_data.insert(
+        "lxgw".to_owned(),
+        load_font_or_fallback(lxgw_path.as_deref(), LXGW, "LXGW WenKai"),
+    );
 
     // 加载 JetBrains Mono 字体（用于英文和等宽显示）
     let jetbrains_path = find_font_file("JetBrainsMono-Regular.ttf");

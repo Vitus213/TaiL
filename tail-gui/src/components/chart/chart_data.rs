@@ -26,7 +26,7 @@ impl ChartTimeGranularity {
     pub fn slot_count(&self) -> usize {
         match self {
             Self::Year => 12,
-            Self::Month => 6,  // 最多6周
+            Self::Month => 6, // 最多6周
             Self::Week => 7,
             Self::Day => 24,
             Self::Hour => 60,
@@ -222,9 +222,9 @@ impl<'a> ChartDataBuilder<'a> {
 
     /// 构建24小时时间槽（单日）
     fn build_day_slots(self) -> ChartData {
-        let mut slots: Vec<ChartTimeSlot> = (0..24).map(|i| {
-            ChartTimeSlot::new(format!("{}h", i), i)
-        }).collect();
+        let mut slots: Vec<ChartTimeSlot> = (0..24)
+            .map(|i| ChartTimeSlot::new(format!("{}h", i), i))
+            .collect();
 
         for usage in self.app_usage {
             if usage.app_name.is_empty() {
@@ -272,9 +272,9 @@ impl<'a> ChartDataBuilder<'a> {
     /// 构建7天时间槽（周）
     fn build_week_slots(self) -> ChartData {
         let weekday_labels = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
-        let mut slots: Vec<ChartTimeSlot> = (0..7).map(|i| {
-            ChartTimeSlot::new(weekday_labels[i].to_string(), i)
-        }).collect();
+        let mut slots: Vec<ChartTimeSlot> = (0..7)
+            .map(|i| ChartTimeSlot::new(weekday_labels[i].to_string(), i))
+            .collect();
 
         for usage in self.app_usage {
             if usage.app_name.is_empty() {
@@ -351,9 +351,9 @@ impl<'a> ChartDataBuilder<'a> {
                     continue;
                 }
 
-                let slot = weekly_data
-                    .entry(week)
-                    .or_insert_with(|| ChartTimeSlot::new(format!("第{}周", week), (week - 1) as usize));
+                let slot = weekly_data.entry(week).or_insert_with(|| {
+                    ChartTimeSlot::new(format!("第{}周", week), (week - 1) as usize)
+                });
 
                 let seconds = event.duration_secs;
                 match self.group_mode {
@@ -384,12 +384,11 @@ impl<'a> ChartDataBuilder<'a> {
     /// 构建12个月槽（年）
     fn build_year_slots(self) -> ChartData {
         let month_labels = [
-            "1月", "2月", "3月", "4月", "5月", "6月",
-            "7月", "8月", "9月", "10月", "11月", "12月",
+            "1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月",
         ];
-        let mut slots: Vec<ChartTimeSlot> = (0..12).map(|i| {
-            ChartTimeSlot::new(month_labels[i].to_string(), i)
-        }).collect();
+        let mut slots: Vec<ChartTimeSlot> = (0..12)
+            .map(|i| ChartTimeSlot::new(month_labels[i].to_string(), i))
+            .collect();
 
         for usage in self.app_usage {
             if usage.app_name.is_empty() {
@@ -440,9 +439,9 @@ impl<'a> ChartDataBuilder<'a> {
 
     /// 构建60分钟槽（小时）
     fn build_hour_slots(self) -> ChartData {
-        let mut slots: Vec<ChartTimeSlot> = (0..60).map(|i| {
-            ChartTimeSlot::new(format!("{}m", i), i)
-        }).collect();
+        let mut slots: Vec<ChartTimeSlot> = (0..60)
+            .map(|i| ChartTimeSlot::new(format!("{}m", i), i))
+            .collect();
 
         for usage in self.app_usage {
             if usage.app_name.is_empty() {
@@ -545,16 +544,12 @@ impl CategoryColorMap {
     pub fn assign_colors(&self, groups: &[String]) -> HashMap<String, egui::Color32> {
         let mut result = HashMap::new();
         for (idx, group) in groups.iter().enumerate() {
-            let color = self
-                .colors
-                .get(group)
-                .copied()
-                .unwrap_or_else(|| {
-                    self.default_colors
-                        .get(idx % self.default_colors.len())
-                        .copied()
-                        .unwrap_or(self.other_color)
-                });
+            let color = self.colors.get(group).copied().unwrap_or_else(|| {
+                self.default_colors
+                    .get(idx % self.default_colors.len())
+                    .copied()
+                    .unwrap_or(self.other_color)
+            });
             result.insert(group.clone(), color);
         }
         result

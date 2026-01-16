@@ -1,10 +1,10 @@
 //! 使用统计服务实现
 
+use crate::db::pool::DbPool;
+use crate::db::queries::{AppUsageQueryImpl, CategoryUsageQueryImpl, TimeStatsQueryImpl};
 use crate::errors::DbResult;
 use crate::models::*;
 use crate::traits::{AppUsageQuery, CategoryUsageQuery, TimeStatsQuery};
-use crate::db::queries::{AppUsageQueryImpl, CategoryUsageQueryImpl, TimeStatsQueryImpl};
-use crate::db::pool::DbPool;
 use async_trait::async_trait;
 use chrono::{DateTime, Local, Utc};
 use std::sync::Arc;
@@ -144,7 +144,8 @@ impl UsageServiceImpl {
             crate::models::TimeNavigationLevel::Hour => {
                 let month = state.selected_month.unwrap_or(1);
                 let day = state.selected_day.unwrap_or(1);
-                self.get_hourly_usage(state.selected_year, month, day).await?
+                self.get_hourly_usage(state.selected_year, month, day)
+                    .await?
             }
         };
 
@@ -176,7 +177,9 @@ impl CategoryUsageQuery for UsageServiceImpl {
         start: chrono::DateTime<Utc>,
         end: chrono::DateTime<Utc>,
     ) -> DbResult<Vec<CategoryUsage>> {
-        self.category_usage_query.get_category_usage(start, end).await
+        self.category_usage_query
+            .get_category_usage(start, end)
+            .await
     }
 }
 
@@ -211,7 +214,9 @@ impl TimeStatsQuery for UsageServiceImpl {
         month: u32,
         day: u32,
     ) -> DbResult<Vec<PeriodUsage>> {
-        self.time_stats_query.get_hourly_usage(year, month, day).await
+        self.time_stats_query
+            .get_hourly_usage(year, month, day)
+            .await
     }
 }
 

@@ -1,9 +1,9 @@
 //! AFK 事件仓储实现
 
+use crate::db::pool::DbPool;
 use crate::errors::{DbError, DbResult};
 use crate::models::AfkEvent;
 use crate::traits::AfkEventRepository;
-use crate::db::pool::DbPool;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use rusqlite::params;

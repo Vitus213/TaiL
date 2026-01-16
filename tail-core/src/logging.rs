@@ -2,7 +2,7 @@
 //!
 //! 提供统一的日志初始化函数和辅助宏
 
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{fmt, EnvFilter};
 
 /// 日志输出模式
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,25 +30,27 @@ pub enum LogOutput {
 /// init_logging(LogOutput::SystemdJournal, "info");
 /// ```
 pub fn init_logging(output: LogOutput, default_level: &str) {
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| {
-            tracing::warn!(
-                "RUST_LOG 解析失败，使用默认级别: {}",
-                default_level
-            );
-            EnvFilter::new(default_level)
-        });
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        tracing::warn!("RUST_LOG 解析失败，使用默认级别: {}", default_level);
+        EnvFilter::new(default_level)
+    });
 
     let builder = fmt().with_env_filter(env_filter);
 
     match output {
         LogOutput::Stdout => {
             builder.init();
-            tracing::info!("日志系统已初始化（输出：标准输出，默认级别：{}）", default_level);
+            tracing::info!(
+                "日志系统已初始化（输出：标准输出，默认级别：{}）",
+                default_level
+            );
         }
         LogOutput::SystemdJournal => {
             builder.with_ansi(false).init();
-            tracing::info!("日志系统已初始化（输出：systemd journal，默认级别：{}）", default_level);
+            tracing::info!(
+                "日志系统已初始化（输出：systemd journal，默认级别：{}）",
+                default_level
+            );
         }
     }
 }

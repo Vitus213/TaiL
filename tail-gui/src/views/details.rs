@@ -2,7 +2,7 @@
 //!
 //! 提供详细的应用使用记录列表，支持搜索、过滤和右键菜单
 
-use chrono::{Datelike, DateTime, Local, Utc};
+use chrono::{DateTime, Datelike, Local, Utc};
 use egui::{ScrollArea, TextEdit, Ui, Vec2};
 use tail_core::AppUsage;
 
@@ -134,15 +134,13 @@ impl DetailsView {
                 let is_selected = self.time_filter == filter;
                 if ui
                     .add(
-                        egui::Button::new(
-                            egui::RichText::new(label)
-                                .size(theme.small_size)
-                                .color(if is_selected {
-                                    egui::Color32::WHITE
-                                } else {
-                                    theme.text_color
-                                }),
-                        )
+                        egui::Button::new(egui::RichText::new(label).size(theme.small_size).color(
+                            if is_selected {
+                                egui::Color32::WHITE
+                            } else {
+                                theme.text_color
+                            },
+                        ))
                         .fill(if is_selected {
                             theme.primary_color
                         } else {
@@ -229,7 +227,13 @@ impl DetailsView {
     }
 
     /// 显示单行记录
-    fn show_record_row(&mut self, ui: &mut Ui, record: &WindowEventRecord, theme: &TaiLTheme, icon_cache: &mut IconCache) {
+    fn show_record_row(
+        &mut self,
+        ui: &mut Ui,
+        record: &WindowEventRecord,
+        theme: &TaiLTheme,
+        icon_cache: &mut IconCache,
+    ) {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 8.0;
 
@@ -247,7 +251,10 @@ impl DetailsView {
 
             // 窗口标题（按字符截断，避免 UTF-8 字符边界问题）
             let title = if record.window_title.chars().count() > 50 {
-                format!("{}...", record.window_title.chars().take(47).collect::<String>())
+                format!(
+                    "{}...",
+                    record.window_title.chars().take(47).collect::<String>()
+                )
             } else {
                 record.window_title.clone()
             };
@@ -350,9 +357,7 @@ impl DetailsView {
                         // 本周：从本周一到今天
                         let now = Local::now();
                         let weekday = now.weekday().num_days_from_monday();
-                        let week_start = now
-                            .date_naive()
-                            - chrono::Duration::days(weekday as i64);
+                        let week_start = now.date_naive() - chrono::Duration::days(weekday as i64);
                         let week_start_utc = week_start
                             .and_hms_opt(0, 0, 0)
                             .unwrap()

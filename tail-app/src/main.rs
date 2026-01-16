@@ -1,7 +1,7 @@
 //! TaiL GUI 应用入口
 
-use tail_gui::{TaiLApp, ThemeType, setup_fonts};
 use tail_core::logging::LogOutput;
+use tail_gui::{TaiLApp, ThemeType, setup_fonts};
 use tracing::{info, warn};
 
 /// 加载应用图标

@@ -17,7 +17,7 @@ pub use utils::{duration, filter, time_range};
 
 // 重新导出服务层的数据类型
 pub use services::{
-    usage_service::{DashboardData, StatsData},
     category_service::CategoryManagementData,
     goal_service::GoalProgress,
+    usage_service::{DashboardData, StatsData},
 };
