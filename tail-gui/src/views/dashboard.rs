@@ -80,7 +80,17 @@ impl<'a> DashboardView<'a> {
             .filter(|u| !u.app_name.is_empty())
             .collect();
 
-        let total_seconds: i64 = valid_apps.iter().map(|u| u.total_seconds).sum();
+        // 只计算非 AFK 时间，与柱形图保持一致
+        let total_seconds: i64 = valid_apps
+            .iter()
+            .map(|u| {
+                u.window_events
+                    .iter()
+                    .filter(|e| !e.is_afk)
+                    .map(|e| e.duration_secs)
+                    .sum::<i64>()
+            })
+            .sum();
 
         let app_count = valid_apps.len();
         let avg_per_app = if app_count > 0 {
@@ -128,11 +138,24 @@ impl<'a> DashboardView<'a> {
                 .accent_color(self.theme.warning_color),
             );
 
-            // 最常用应用
-            if let Some(top_app) = valid_apps.first() {
+            // 最常用应用（按非 AFK 时间排序）
+            let mut valid_apps_with_non_afk: Vec<_> = valid_apps
+                .iter()
+                .map(|u| {
+                    let non_afk_seconds = u.window_events
+                        .iter()
+                        .filter(|e| !e.is_afk)
+                        .map(|e| e.duration_secs)
+                        .sum::<i64>();
+                    (u, non_afk_seconds)
+                })
+                .collect();
+            valid_apps_with_non_afk.sort_by(|a, b| b.1.cmp(&a.1));
+
+            if let Some((top_app, top_app_seconds)) = valid_apps_with_non_afk.first() {
                 let icon = self.icon_cache.get_emoji(&top_app.app_name);
                 let percentage = if total_seconds > 0 {
-                    (top_app.total_seconds as f32 / total_seconds as f32) * 100.0
+                    (*top_app_seconds as f32 / total_seconds as f32) * 100.0
                 } else {
                     0.0
                 };
@@ -140,7 +163,7 @@ impl<'a> DashboardView<'a> {
                     StatCard::new("最常用", &top_app.app_name, icon, self.theme)
                         .subtitle(&format!(
                             "{} · {}%",
-                            duration::format_duration(top_app.total_seconds),
+                            duration::format_duration(*top_app_seconds),
                             percentage as u32
                         ))
                         .accent_color(self.theme.success_color),
@@ -244,31 +267,53 @@ impl<'a> DashboardView<'a> {
             return;
         }
 
-        let total_seconds: i64 = self.app_usage.iter().map(|u| u.total_seconds).sum();
-
-        // 收集需要的数据，避免借用冲突
-        // 过滤掉空名称的应用
-        let app_data: Vec<_> = self
+        // total_seconds 应该只计算非 AFK 时间，与柱形图保持一致
+        let total_seconds: i64 = self
             .app_usage
             .iter()
-            .enumerate()
-            .filter(|(_, usage)| !usage.app_name.is_empty())
-            .map(|(idx, usage)| {
+            .map(|u| {
+                u.window_events
+                    .iter()
+                    .filter(|e| !e.is_afk)
+                    .map(|e| e.duration_secs)
+                    .sum::<i64>()
+            })
+            .sum();
+
+        // 应用使用排行应该只计算非 AFK 时间，与柱形图保持一致
+        let mut app_data: Vec<_> = self
+            .app_usage
+            .iter()
+            .filter(|usage| !usage.app_name.is_empty())
+            .map(|usage| {
+                // 只计算非 AFK 事件的总时长
+                let non_afk_seconds: i64 = usage.window_events
+                    .iter()
+                    .filter(|e| !e.is_afk)
+                    .map(|e| e.duration_secs)
+                    .sum();
+
                 let percentage = if total_seconds > 0 {
-                    (usage.total_seconds as f32 / total_seconds as f32) * 100.0
+                    (non_afk_seconds as f32 / total_seconds as f32) * 100.0
                 } else {
                     0.0
                 };
-                let window_title = usage.window_events.last().map(|e| e.window_title.clone());
+                let window_title = usage.window_events
+                    .iter()
+                    .filter(|e| !e.is_afk)
+                    .last()
+                    .map(|e| e.window_title.clone());
                 (
-                    idx,
                     usage.app_name.clone(),
-                    usage.total_seconds,
+                    non_afk_seconds,
                     percentage,
                     window_title,
                 )
             })
             .collect();
+
+        // 按使用时长降序排序，确保排名正确
+        app_data.sort_by(|a, b| b.1.cmp(&a.1));
 
         // 使用 ScrollArea 占满宽度
         ScrollArea::vertical()
@@ -276,13 +321,13 @@ impl<'a> DashboardView<'a> {
             .show(ui, |ui| {
                 ui.spacing_mut().item_spacing.y = self.theme.spacing / 2.0;
 
-                for (idx, app_name, total_secs, percentage, window_title) in app_data {
+                for (rank, (app_name, total_secs, percentage, window_title)) in app_data.into_iter().enumerate() {
                     let mut card = AppCard::new(
                         &app_name,
                         &app_name, // TODO: 使用别名
                         total_secs,
                         percentage,
-                        idx + 1,
+                        rank + 1, // 排名从1开始
                         self.theme,
                         self.icon_cache,
                         ui.ctx(),

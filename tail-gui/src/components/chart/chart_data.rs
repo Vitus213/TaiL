@@ -261,9 +261,12 @@ impl<'a> ChartDataBuilder<'a> {
             }
         }
 
+        // total_seconds 应该是所有时间槽的实际时长之和（考虑过滤后）
+        let total_seconds = slots.iter().map(|s| s.total_seconds).sum();
+
         ChartData {
             time_slots: slots,
-            total_seconds: self.app_usage.iter().map(|u| u.total_seconds).sum(),
+            total_seconds,
             granularity: ChartTimeGranularity::Day,
             group_mode: self.group_mode,
         }
@@ -309,9 +312,12 @@ impl<'a> ChartDataBuilder<'a> {
             }
         }
 
+        // total_seconds 应该是所有时间槽的实际时长之和（考虑过滤后）
+        let total_seconds = slots.iter().map(|s| s.total_seconds).sum();
+
         ChartData {
             time_slots: slots,
-            total_seconds: self.app_usage.iter().map(|u| u.total_seconds).sum(),
+            total_seconds,
             granularity: ChartTimeGranularity::Week,
             group_mode: self.group_mode,
         }
@@ -373,9 +379,12 @@ impl<'a> ChartDataBuilder<'a> {
         let mut slots: Vec<_> = weekly_data.into_values().collect();
         slots.sort_by_key(|s| s.index);
 
+        // total_seconds 应该是所有时间槽的实际时长之和（考虑过滤后）
+        let total_seconds = slots.iter().map(|s| s.total_seconds).sum();
+
         ChartData {
             time_slots: slots,
-            total_seconds: self.app_usage.iter().map(|u| u.total_seconds).sum(),
+            total_seconds,
             granularity: ChartTimeGranularity::Month,
             group_mode: self.group_mode,
         }
@@ -429,9 +438,12 @@ impl<'a> ChartDataBuilder<'a> {
             }
         }
 
+        // total_seconds 应该是所有时间槽的实际时长之和（考虑过滤后）
+        let total_seconds = slots.iter().map(|s| s.total_seconds).sum();
+
         ChartData {
             time_slots: slots,
-            total_seconds: self.app_usage.iter().map(|u| u.total_seconds).sum(),
+            total_seconds,
             granularity: ChartTimeGranularity::Year,
             group_mode: self.group_mode,
         }
@@ -476,9 +488,12 @@ impl<'a> ChartDataBuilder<'a> {
             }
         }
 
+        // total_seconds 应该是所有时间槽的实际时长之和（考虑过滤后）
+        let total_seconds = slots.iter().map(|s| s.total_seconds).sum();
+
         ChartData {
             time_slots: slots,
-            total_seconds: self.app_usage.iter().map(|u| u.total_seconds).sum(),
+            total_seconds,
             granularity: ChartTimeGranularity::Hour,
             group_mode: self.group_mode,
         }

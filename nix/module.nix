@@ -57,14 +57,15 @@ in {
 
   config = mkIf cfg.enable {
     # 确保包可用
-    environment.systemPackages = [cfg.package]
+    environment.systemPackages =
+      [cfg.package]
       ++ (lib.optional cfg.installGui cfg.guiPackage);
 
     # Systemd 用户服务
     systemd.user.services.tail = {
       description = "TaiL Window Time Tracker Service";
       documentation = ["https://github.com/Vitus213/tail"];
-      
+
       wantedBy = mkIf cfg.autoStart ["graphical-session.target"];
       after = ["graphical-session.target"];
       partOf = ["graphical-session.target"];
@@ -97,6 +98,5 @@ in {
         ];
       };
     };
-
   };
 }

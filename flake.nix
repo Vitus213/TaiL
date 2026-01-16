@@ -41,12 +41,15 @@
         srcWithAssets = pkgs.lib.cleanSourceWith {
           src = ./.;
           filter = path: type:
-            # 保留字体文件
-            (pkgs.lib.hasSuffix ".ttf" path) ||
+          # 保留字体文件
+            (pkgs.lib.hasSuffix ".ttf" path)
+            ||
             # 保留 SVG 图标文件
-            (pkgs.lib.hasSuffix ".svg" path) ||
+            (pkgs.lib.hasSuffix ".svg" path)
+            ||
             # 保留 desktop 文件
-            (pkgs.lib.hasSuffix ".desktop" path) ||
+            (pkgs.lib.hasSuffix ".desktop" path)
+            ||
             # 保留 Crane 默认的 Cargo 源码
             (craneLib.filterCargoSources path type);
         };
@@ -85,8 +88,8 @@
 
         # 字体包
         fonts = with pkgs; [
-          jetbrains-mono      # 等宽英文字体
-          lxgw-wenkai         # 霞鹜文楷（中文）
+          jetbrains-mono # 等宽英文字体
+          lxgw-wenkai # 霞鹜文楷（中文）
           noto-fonts-cjk-sans # Noto Sans CJK（中文后备）
         ];
 
@@ -118,86 +121,91 @@
         tailIconSvg = ./tail-gui/assets/icons/tail.svg;
 
         # 包装后的二进制文件，设置运行时库路径、字体路径，并安装图标和 desktop 文件
-        tail-app = pkgs.runCommand "tail-app" {
-          nativeBuildInputs = [ pkgs.makeWrapper ];
-        } ''
-          mkdir -p $out/bin
-          mkdir -p $out/share/applications
-          mkdir -p $out/share/icons/hicolor/scalable/apps
+        tail-app =
+          pkgs.runCommand "tail-app" {
+            nativeBuildInputs = [pkgs.makeWrapper];
+          } ''
+                      mkdir -p $out/bin
+                      mkdir -p $out/share/applications
+                      mkdir -p $out/share/icons/hicolor/scalable/apps
 
-          # 包装二进制文件
-          makeWrapper ${tail-app-unwrapped}/bin/tail-app $out/bin/tail-app \
-            --prefix LD_LIBRARY_PATH : "${runtimeLibs}" \
-            --set TAIL_FONT_PATH "${fontPaths}"
-          
-          # 安装图标
-          cp ${tailIconSvg} $out/share/icons/hicolor/scalable/apps/tail.svg
-          
-          # 安装 desktop 文件
-          cat > $out/share/applications/tail.desktop << EOF
-[Desktop Entry]
-Name=TaiL
-GenericName=Time Tracker
-Comment=Track your application usage time
-Exec=$out/bin/tail-app
-Icon=tail
-Terminal=false
-Type=Application
-Categories=Utility;Monitor;
-Keywords=time;tracker;productivity;usage;
-StartupWMClass=tail
-EOF
-        '';
+                      # 包装二进制文件
+                      makeWrapper ${tail-app-unwrapped}/bin/tail-app $out/bin/tail-app \
+                        --prefix LD_LIBRARY_PATH : "${runtimeLibs}" \
+                        --set TAIL_FONT_PATH "${fontPaths}"
 
-        tail-service = pkgs.runCommand "tail-service" {
-          nativeBuildInputs = [ pkgs.makeWrapper ];
-        } ''
-          mkdir -p $out/bin
-          makeWrapper ${tail-service-unwrapped}/bin/tail-service $out/bin/tail-service \
-            --prefix LD_LIBRARY_PATH : "${runtimeLibs}"
-        '';
+                      # 安装图标
+                      cp ${tailIconSvg} $out/share/icons/hicolor/scalable/apps/tail.svg
 
+                      # 安装 desktop 文件
+                      cat > $out/share/applications/tail.desktop << EOF
+            [Desktop Entry]
+            Name=TaiL
+            GenericName=Time Tracker
+            Comment=Track your application usage time
+            Exec=$out/bin/tail-app
+            Icon=tail
+            Terminal=false
+            Type=Application
+            Categories=Utility;Monitor;
+            Keywords=time;tracker;productivity;usage;
+            StartupWMClass=tail
+            EOF
+          '';
+
+        tail-service =
+          pkgs.runCommand "tail-service" {
+            nativeBuildInputs = [pkgs.makeWrapper];
+          } ''
+            mkdir -p $out/bin
+            makeWrapper ${tail-service-unwrapped}/bin/tail-service $out/bin/tail-service \
+              --prefix LD_LIBRARY_PATH : "${runtimeLibs}"
+          '';
       in {
         # Development environment
         devShells.default = pkgs.mkShell {
-          buildInputs = [
-            # Fenix Rust 工具链（包含完整工具）
-            (fenix.packages.${system}.stable.withComponents [
-              "cargo"
-              "clippy"
-              "rust-src"
-              "rust-std"
-              "rustc"
-              "rustfmt"
-            ])
-            fenix.packages.${system}.rust-analyzer
-          ] ++ (with pkgs; [
-            # Build dependencies
-            pkg-config
+          buildInputs =
+            [
+              # Fenix Rust 工具链（包含完整工具）
+              (fenix.packages.${system}.stable.withComponents [
+                "cargo"
+                "clippy"
+                "rust-src"
+                "rust-std"
+                "rustc"
+                "rustfmt"
+              ])
+              fenix.packages.${system}.rust-analyzer
+            ]
+            ++ (with pkgs;
+              [
+                # Build dependencies
+                pkg-config
 
-            # GUI libraries (for egui)
-            libxkbcommon
-            wayland
-            wayland-scanner
-            # OpenGL/EGL support
-            libGL
-            mesa
+                # GUI libraries (for egui)
+                libxkbcommon
+                wayland
+                wayland-scanner
+                # OpenGL/EGL support
+                libGL
+                mesa
 
-            # Development tools
-            cargo-edit
-            cargo-watch
-            cargo-nextest
-            bacon
+                # Development tools
+                cargo-edit
+                cargo-watch
+                cargo-nextest
+                bacon
 
-            # Nix related
-            nil
-            nixpkgs-fmt
-            act  # GitHub Actions 本地运行工具
+                # Nix related
+                nil
+                nixpkgs-fmt
+                act # GitHub Actions 本地运行工具
 
-            # For testing IPC (can use socat to test socket)
-            socat
-            just
-          ] ++ fonts);  # 添加字体依赖
+                # For testing IPC (can use socat to test socket)
+                socat
+                just
+              ]
+              ++ fonts); # 添加字体依赖
 
           shellHook = ''
             # Set up environment for Wayland development
@@ -279,7 +287,11 @@ EOF
     )
     // {
       # NixOS 模块导出 - 自动应用 overlay
-      nixosModules.default = {config, pkgs, ...}: {
+      nixosModules.default = {
+        config,
+        pkgs,
+        ...
+      }: {
         imports = [nixosModule];
         nixpkgs.overlays = [self.overlays.default];
       };

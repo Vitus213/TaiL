@@ -106,23 +106,9 @@ impl<'a> StackedBarChart<'a> {
         let y_axis_width = 45.0;
         let y_tick_count = 5;
 
-        // Y 轴时间格式化函数
+        // Y 轴时间格式化函数 - 使用统一的时间格式化模块
         let format_y_tick = |seconds: i64| -> String {
-            if seconds < 60 {
-                format!("{}m", seconds)
-            } else if seconds < 3600 {
-                let mins = seconds / 60;
-                format!("{}m", mins)
-            } else {
-                let hours = seconds as f32 / 3600.0;
-                if hours.fract() < 0.1 || hours.fract() > 0.9 {
-                    format!("{}h", hours.round() as i32)
-                } else if hours.fract() < 0.6 {
-                    format!("{}h", hours as i32)
-                } else {
-                    format!("{:.1}h", hours)
-                }
-            }
+            tail_core::time::format::TimeFormatter::format_y_axis(seconds)
         };
 
         // 计算 Y 轴刻度值

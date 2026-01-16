@@ -5,6 +5,7 @@ pub mod errors;
 pub mod logging;
 pub mod models;
 pub mod services;
+pub mod time;
 pub mod traits;
 pub mod utils;
 

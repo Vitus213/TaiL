@@ -27,7 +27,7 @@ jobs:
         run: nix develop --command cargo fmt --check
 
       - name: Check Nix Formatting
-        run: nix fmt --check
+        run: nix develop --command alejandra --check flake.nix shell.nix nix/*.nix
 
   test:
     name: Test

@@ -238,20 +238,22 @@ impl<'a> StatisticsView<'a> {
 
         let available_height = ui.available_height().max(200.0);
 
-        // 收集应用数据以避免借用冲突
-        let app_data: Vec<_> = self
+        // 收集应用数据以避免借用冲突，并按使用时长降序排序
+        let mut app_data: Vec<_> = self
             .app_usage
             .iter()
-            .enumerate()
-            .map(|(idx, usage)| {
+            .map(|usage| {
                 let percentage = if total_seconds > 0 {
                     (usage.total_seconds as f32 / total_seconds as f32) * 100.0
                 } else {
                     0.0
                 };
-                (idx, usage.app_name.clone(), usage.total_seconds, percentage)
+                (usage.app_name.clone(), usage.total_seconds, percentage)
             })
             .collect();
+
+        // 按使用时长降序排序
+        app_data.sort_by(|a, b| b.1.cmp(&a.1));
 
         TableBuilder::new(ui)
             .striped(true)
@@ -301,18 +303,18 @@ impl<'a> StatisticsView<'a> {
                 });
             })
             .body(|mut body| {
-                for (idx, app_name, total_secs, percentage) in app_data {
+                for (rank, (app_name, total_secs, percentage)) in app_data.into_iter().enumerate() {
                     body.row(36.0, |mut row| {
                         // 排名
                         row.col(|ui| {
-                            let rank_color = match idx {
+                            let rank_color = match rank {
                                 0 => Color32::from_rgb(255, 215, 0),   // 金色
                                 1 => Color32::from_rgb(192, 192, 192), // 银色
                                 2 => Color32::from_rgb(205, 127, 50),  // 铜色
                                 _ => self.theme.secondary_text_color,
                             };
                             ui.label(
-                                egui::RichText::new(format!("#{}", idx + 1))
+                                egui::RichText::new(format!("#{}", rank + 1))
                                     .size(self.theme.body_size)
                                     .color(rank_color),
                             );
