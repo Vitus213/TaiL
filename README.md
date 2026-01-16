@@ -7,167 +7,78 @@
 
 ## 功能特性
 
-- 🔍 **自动窗口追踪** - 通过 Hyprland IPC 实时监听窗口活动
-- 📊 **可视化统计** - 原生 GUI 界面展示使用数据
-- ⏱️ **AFK 检测** - 自动检测空闲时间
-- 🎯 **目标限制** - 设置应用使用时长限制和提醒
-- 📈 **多维度统计** - 按小时/天/周/月查看时间分布
+- **自动窗口追踪** - 通过 Hyprland IPC 实时监听窗口活动
+- **可视化统计** - 原生 GUI 界面展示使用数据
+- **AFK 检测** - 自动检测空闲时间
+- **目标限制** - 设置应用使用时长限制和提醒
+- **多维度统计** - 按小时/天/周/月查看时间分布
 
-## 快速安装
+## 界面预览
 
-### NixOS 用户（一键安装）
+![TaiL 界面](index.png)
+
+## 快速开始
+
+### NixOS 用户
 
 ```bash
-# 方法一：一键打包
-just nix-package
+# 直接运行（无需安装）
+nix run github:vitus213/tail
 
-# 方法二：直接运行（无需安装）
-nix run github:yourusername/TaiL
-
-# 方法三：安装到用户环境
-just nix-install-local
+# 或安装到系统
+nix profile install github:vitus213/tail
 ```
 
-**详细的 NixOS 安装指南请查看：[NIXOS_INSTALL.md](NIXOS_INSTALL.md)**
+详细安装指南请查看 [安装文档](docs/user/installation.md)。
 
 ### 其他 Linux 发行版
 
 ```bash
-# 使用 Nix 包管理器
-curl --proto '=https' --tlsv1.2 -sSf -L https://nixos.org/nix/install | sh
-nix run github:yourusername/TaiL
-```
+# 使用 Cargo 安装
+cargo install tail
 
-## 开发环境
-
-### 使用 Nix (推荐)
-
-```bash
-# 启用 Flakes
-mkdir -p ~/.config/nix
-echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
-
-# 进入开发环境
-nix develop
-
-# 或者使用 direnv
-direnv allow
-```
-
-### Docker 测试环境
-
-```bash
-docker build -t tail-dev .
-docker run -it --rm tail-dev
-```
-
-### 手动安装依赖
-
-```bash
-# Arch Linux
-pacman -S rust pkg-config wayland libxkbcommon
-
-# Ubuntu/Debian
-apt install rustc cargo pkg-config libwayland-dev libxkbcommon-dev
-```
-
-## 构建和运行
-
-### 使用 just 命令（最简单）
-
-```bash
-# 查看所有命令
-just
-
-# 一键打包给 NixOS
-just nix-package
-
-# 运行 GUI
-just run
-
-# 运行后台服务
-just run-service
-
-# 运行测试
-just test
-```
-
-### 使用 Nix
-
-```bash
-# 构建
-nix build .#tail-app
-nix build .#tail-service
-
-# 运行
-nix run .#tail-app
-```
-
-### 使用 Cargo
-
-```bash
-# 构建
+# 或从源码构建
+git clone https://github.com/vitus213/tail.git
+cd tail
 cargo build --release
-
-# 运行
-cargo run --release -p tail-app
 ```
+
+## 使用
+
+```bash
+# 启动后台服务
+tail-service
+
+# 运行 GUI 查看统计
+tail-app
+```
+
+## 文档
+
+- [用户指南](docs/user/) - 安装、配置和使用说明
+- [开发文档](docs/developer/) - 架构、开发和贡献指南
 
 ## 项目结构
 
 ```
 tail/
-├── flake.nix          # Nix Flakes 配置
-├── Cargo.toml         # Workspace 配置
-├── tail-core/         # 核心数据模型和数据库
-├── tail-hyprland/     # Hyprland IPC 客户端
-├── tail-afk/          # AFK 检测模块
-├── tail-gui/          # egui 界面
-├── tail-service/      # 后台服务
-└── tail-app/          # 应用入口
+├── tail-core/        # 核心数据模型和数据库
+├── tail-hyprland/    # Hyprland IPC 客户端
+├── tail-afk/         # AFK 检测模块
+├── tail-gui/         # egui 界面
+├── tail-service/     # 后台服务
+└── tail-app/         # 应用入口
 ```
 
-## NixOS 集成
+## 技术栈
 
-TaiL 提供完整的 NixOS 模块支持：
-
-```nix
-# 在 configuration.nix 中
-services.tail = {
-  enable = true;
-  user = "yourusername";
-  afkTimeout = 300;
-  logLevel = "info";
-  autoStart = true;
-};
-```
-
-详细配置请查看 [NIXOS_INSTALL.md](NIXOS_INSTALL.md)
-
-## 架构设计
-
-- **高内聚低耦合** - 模块间通过明确的接口通信
-- **可复现构建** - Nix Flakes 保证环境一致性
-- **事件驱动** - 基于 Tokio 异步运行时
-
-## 文档
-
-- 📖 [运行指南](RUNNING_GUIDE.md) - 详细的运行说明
-- 🐧 [NixOS 安装](NIXOS_INSTALL.md) - NixOS 一键安装指南
-- 📊 [开发总结](DEVELOPMENT_SUMMARY.md) - 项目开发总结
-- 🏗️ [架构文档](plans/architecture-summary.md) - 架构设计详解
-
-## 测试
-
-```bash
-# 运行所有测试
-just test
-
-# 或使用 cargo
-cargo test --workspace
-```
-
-✅ **27 个测试全部通过**（21 个单元测试 + 6 个集成测试）
+| 类别 | 技术 |
+|------|------|
+| 语言 | Rust 1.84+ |
+| 运行时 | Tokio |
+| 数据库 | SQLite |
+| GUI | egui/eframe |
+| 构建 | Nix Flakes |
 
 ## 许可证
 
