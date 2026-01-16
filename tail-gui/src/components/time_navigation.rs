@@ -6,10 +6,45 @@ use tail_core::models::{TimeNavigationLevel, TimeNavigationState};
 
 use crate::theme::TaiLTheme;
 
+/// 默认统计视图设置
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DefaultStatsView {
+    /// 今天（默认）
+    #[default]
+    Today,
+    /// 昨天
+    Yesterday,
+    /// 本周
+    ThisWeek,
+    /// 本月
+    ThisMonth,
+}
+
+impl DefaultStatsView {
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Today => "今天",
+            Self::Yesterday => "昨天",
+            Self::ThisWeek => "本周",
+            Self::ThisMonth => "本月",
+        }
+    }
+
+    pub fn all() -> &'static [Self] {
+        &[
+            Self::Today,
+            Self::Yesterday,
+            Self::ThisWeek,
+            Self::ThisMonth,
+        ]
+    }
+}
+
 /// 快捷时间范围选择
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuickTimeRange {
     Today,
+    Yesterday,
     ThisWeek,
     ThisMonth,
     ThisYear,
@@ -47,6 +82,25 @@ impl<'a> TimeNavigationController<'a> {
             ui.add_space(16.0);
 
             // 快捷时间范围按钮
+            // 昨天按钮
+            let is_yesterday = self.state.level == TimeNavigationLevel::Hour && self.is_yesterday();
+            if ui
+                .selectable_label(
+                    is_yesterday,
+                    egui::RichText::new("📅 昨天")
+                        .size(13.0)
+                        .color(if is_yesterday {
+                            self.theme.primary_color
+                        } else {
+                            self.theme.text_color
+                        }),
+                )
+                .clicked()
+                && !is_yesterday
+            {
+                quick_range = Some(QuickTimeRange::Yesterday);
+            }
+
             // 今天按钮
             let is_today = self.state.level == TimeNavigationLevel::Hour && self.is_current_today();
             if ui
@@ -168,6 +222,15 @@ impl<'a> TimeNavigationController<'a> {
         self.state.selected_year == now.year()
             && self.state.selected_month == Some(now.month())
             && self.state.selected_day == Some(now.day())
+    }
+
+    /// 检查是否是昨天
+    fn is_yesterday(&self) -> bool {
+        let now = Local::now();
+        let yesterday = now.date_naive() - chrono::Duration::days(1);
+        self.state.selected_year == yesterday.year()
+            && self.state.selected_month == Some(yesterday.month())
+            && self.state.selected_day == Some(yesterday.day())
     }
 
     /// 检查是否是当前周

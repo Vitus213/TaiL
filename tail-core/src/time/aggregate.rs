@@ -12,8 +12,8 @@ use chrono::{DateTime, Datelike, Local, Timelike, Utc};
 use std::collections::HashMap;
 
 use crate::models::{AppUsage, WindowEvent};
-use crate::time::types::{TimeGranularity, TimeSlot, TimeSlots};
 use crate::time::range::TimeRange;
+use crate::time::types::{TimeGranularity, TimeSlot, TimeSlots};
 
 /// 分组模式
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -103,14 +103,17 @@ impl<'a> TimeAggregator<'a> {
         }
 
         // 验证：所有槽的时长之和应该等于总时长
-        let calculated_total: i64 = slots.slots()
+        let calculated_total: i64 = slots
+            .slots()
             .iter()
             .map(|s| s.duration().as_seconds())
             .sum();
 
-        assert_eq!(calculated_total, total_seconds,
+        assert_eq!(
+            calculated_total, total_seconds,
             "聚合后的总时长与计算值不匹配: {} vs {}",
-            calculated_total, total_seconds);
+            calculated_total, total_seconds
+        );
 
         slots
     }
@@ -162,7 +165,8 @@ impl<'a> TimeAggregator<'a> {
         }
 
         // 验证总时长
-        let calculated_total: i64 = slots.slots()
+        let calculated_total: i64 = slots
+            .slots()
             .iter()
             .map(|s| s.duration().as_seconds())
             .sum();
@@ -210,9 +214,9 @@ impl<'a> TimeAggregator<'a> {
                     continue;
                 }
 
-                let slot = weekly_data.entry(week).or_insert_with(|| {
-                    TimeSlot::new(format!("第{}周", week), (week - 1) as usize)
-                });
+                let slot = weekly_data
+                    .entry(week)
+                    .or_insert_with(|| TimeSlot::new(format!("第{}周", week), (week - 1) as usize));
 
                 let seconds = event.duration_secs;
                 total_seconds += seconds;
@@ -233,10 +237,7 @@ impl<'a> TimeAggregator<'a> {
         slot_vec.sort_by_key(|s| s.index());
 
         // 验证总时长
-        let calculated_total: i64 = slot_vec
-            .iter()
-            .map(|s| s.duration().as_seconds())
-            .sum();
+        let calculated_total: i64 = slot_vec.iter().map(|s| s.duration().as_seconds()).sum();
         assert_eq!(calculated_total, total_seconds);
 
         for slot in slot_vec {
@@ -251,8 +252,7 @@ impl<'a> TimeAggregator<'a> {
     /// 返回 12 个时间槽，每个代表一个月
     pub fn aggregate_by_year(&self) -> TimeSlots {
         let month_labels = [
-            "1月", "2月", "3月", "4月", "5月", "6月",
-            "7月", "8月", "9月", "10月", "11月", "12月",
+            "1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月",
         ];
         let mut slots = TimeSlots::new(TimeGranularity::Year);
         for (i, label) in month_labels.iter().enumerate() {
@@ -299,7 +299,8 @@ impl<'a> TimeAggregator<'a> {
         }
 
         // 验证总时长
-        let calculated_total: i64 = slots.slots()
+        let calculated_total: i64 = slots
+            .slots()
             .iter()
             .map(|s| s.duration().as_seconds())
             .sum();
@@ -350,7 +351,8 @@ impl<'a> TimeAggregator<'a> {
         }
 
         // 验证总时长
-        let calculated_total: i64 = slots.slots()
+        let calculated_total: i64 = slots
+            .slots()
             .iter()
             .map(|s| s.duration().as_seconds())
             .sum();
@@ -403,39 +405,43 @@ mod tests {
         let time1 = NaiveTime::from_hms_opt(10, 30, 0).unwrap();
         let time2 = NaiveTime::from_hms_opt(14, 0, 0).unwrap();
 
-        let dt1 = date.and_time(time1).and_local_timezone(Local).unwrap().with_timezone(&Utc);
-        let dt2 = date.and_time(time2).and_local_timezone(Local).unwrap().with_timezone(&Utc);
+        let dt1 = date
+            .and_time(time1)
+            .and_local_timezone(Local)
+            .unwrap()
+            .with_timezone(&Utc);
+        let dt2 = date
+            .and_time(time2)
+            .and_local_timezone(Local)
+            .unwrap()
+            .with_timezone(&Utc);
 
         vec![
             AppUsage {
                 app_name: "App1".to_string(),
                 total_seconds: 3665, // 1h 1m 5s
-                window_events: vec![
-                    WindowEvent {
-                        id: None,
-                        timestamp: dt1,
-                        duration_secs: 3665,
-                        app_name: "App1".to_string(),
-                        window_title: "Test".to_string(),
-                        workspace: String::new(),
-                        is_afk: false,
-                    },
-                ],
+                window_events: vec![WindowEvent {
+                    id: None,
+                    timestamp: dt1,
+                    duration_secs: 3665,
+                    app_name: "App1".to_string(),
+                    window_title: "Test".to_string(),
+                    workspace: String::new(),
+                    is_afk: false,
+                }],
             },
             AppUsage {
                 app_name: "App2".to_string(),
                 total_seconds: 1800, // 30m
-                window_events: vec![
-                    WindowEvent {
-                        id: None,
-                        timestamp: dt2,
-                        duration_secs: 1800,
-                        app_name: "App2".to_string(),
-                        window_title: "Test".to_string(),
-                        workspace: String::new(),
-                        is_afk: false,
-                    },
-                ],
+                window_events: vec![WindowEvent {
+                    id: None,
+                    timestamp: dt2,
+                    duration_secs: 1800,
+                    app_name: "App2".to_string(),
+                    window_title: "Test".to_string(),
+                    workspace: String::new(),
+                    is_afk: false,
+                }],
             },
         ]
     }
@@ -483,17 +489,21 @@ mod tests {
 
         // 设置时间范围：只包含上午
         use crate::time::range::TimeRangeCalculator;
-        let range = TimeRangeCalculator::day(
-            NaiveDate::from_ymd_opt(2024, 1, 15).unwrap()
-        );
+        let range = TimeRangeCalculator::day(NaiveDate::from_ymd_opt(2024, 1, 15).unwrap());
 
         // 创建只包含上午的时间范围
-        let start = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap()
+        let start = NaiveDate::from_ymd_opt(2024, 1, 15)
+            .unwrap()
             .and_time(NaiveTime::from_hms_opt(0, 0, 0).unwrap())
-            .and_local_timezone(Local).unwrap().with_timezone(&Utc);
-        let end = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap()
+            .and_local_timezone(Local)
+            .unwrap()
+            .with_timezone(&Utc);
+        let end = NaiveDate::from_ymd_opt(2024, 1, 15)
+            .unwrap()
             .and_time(NaiveTime::from_hms_opt(12, 0, 0).unwrap())
-            .and_local_timezone(Local).unwrap().with_timezone(&Utc);
+            .and_local_timezone(Local)
+            .unwrap()
+            .with_timezone(&Utc);
         let range = TimeRange::new(start, end);
 
         let aggregator = TimeAggregator::new(&data).with_time_range(range);
@@ -516,9 +526,9 @@ mod tests {
         // 测试周计算的一致性
         use crate::time::range::TimeRangeCalculator;
         // 2024年1月1日是周一
-        assert_eq!(TimeRangeCalculator::week_of_month(2024, 1, 1), 1);  // 周一
-        assert_eq!(TimeRangeCalculator::week_of_month(2024, 1, 7), 1);  // 周日
-        assert_eq!(TimeRangeCalculator::week_of_month(2024, 1, 8), 2);  // 下周一
+        assert_eq!(TimeRangeCalculator::week_of_month(2024, 1, 1), 1); // 周一
+        assert_eq!(TimeRangeCalculator::week_of_month(2024, 1, 7), 1); // 周日
+        assert_eq!(TimeRangeCalculator::week_of_month(2024, 1, 8), 2); // 下周一
         assert_eq!(TimeRangeCalculator::week_of_month(2024, 1, 14), 2); // 该周日
         assert_eq!(TimeRangeCalculator::week_of_month(2024, 1, 15), 3); // 下周一
     }

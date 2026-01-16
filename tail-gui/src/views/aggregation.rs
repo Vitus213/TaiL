@@ -51,9 +51,9 @@ impl<'a> DataAggregator<'a> {
 
         for usage in self.app_usage {
             for event in &usage.window_events {
-                // 使用本地时间进行比较
+                // 使用本地时间进行比较，只计算非 AFK 时间
                 let local_time = event.timestamp.with_timezone(&Local);
-                if local_time.year() == year {
+                if local_time.year() == year && !event.is_afk {
                     let month = local_time.month();
                     *monthly_usage.entry(month).or_insert(0) += event.duration_secs;
                 }
@@ -75,9 +75,9 @@ impl<'a> DataAggregator<'a> {
 
         for usage in self.app_usage {
             for event in &usage.window_events {
-                // 使用本地时间进行比较
+                // 使用本地时间进行比较，只计算非 AFK 时间
                 let local_time = event.timestamp.with_timezone(&Local);
-                if local_time.year() == year && local_time.month() == month {
+                if local_time.year() == year && local_time.month() == month && !event.is_afk {
                     let day = local_time.day();
                     let week = Self::get_week_of_month(year, month, day);
                     *weekly_usage.entry(week).or_insert(0) += event.duration_secs;
@@ -116,7 +116,10 @@ impl<'a> DataAggregator<'a> {
         for usage in self.app_usage {
             for event in &usage.window_events {
                 let event_date = event.timestamp.date_naive();
-                if event_date >= week_start && event_date < week_start + Duration::days(7) {
+                if event_date >= week_start
+                    && event_date < week_start + Duration::days(7)
+                    && !event.is_afk
+                {
                     *daily_usage.entry(event_date).or_insert(0) += event.duration_secs;
                 }
             }
@@ -159,11 +162,12 @@ impl<'a> DataAggregator<'a> {
 
         for usage in self.app_usage {
             for event in &usage.window_events {
-                // 使用本地时间进行比较
+                // 使用本地时间进行比较，只计算非 AFK 时间
                 let local_time = event.timestamp.with_timezone(&Local);
                 if local_time.year() == year
                     && local_time.month() == month
                     && local_time.day() == day
+                    && !event.is_afk
                 {
                     let hour = local_time.hour();
                     *hourly_usage.entry(hour).or_insert(0) += event.duration_secs;
@@ -198,7 +202,10 @@ impl<'a> DataAggregator<'a> {
         for usage in self.app_usage {
             for event in &usage.window_events {
                 let event_date = event.timestamp.date_naive();
-                if event_date >= week_start && event_date < week_start + Duration::days(7) {
+                if event_date >= week_start
+                    && event_date < week_start + Duration::days(7)
+                    && !event.is_afk
+                {
                     *daily_usage.entry(event_date).or_insert(0) += event.duration_secs;
                 }
             }

@@ -76,6 +76,16 @@ impl<'a> StatisticsView<'a> {
             let now = Local::now();
             eprintln!("[DEBUG] 统计视图 - 快捷时间范围被选择: {:?}", quick);
             match quick {
+                QuickTimeRange::Yesterday => {
+                    // 昨天 - 显示24小时
+                    let yesterday = Local::now().date_naive() - chrono::Duration::days(1);
+                    self.navigation_state.go_to_yesterday(
+                        yesterday.year(),
+                        yesterday.month(),
+                        yesterday.day(),
+                    );
+                    new_time_range = Some(TimeRange::Yesterday);
+                }
                 QuickTimeRange::Today => {
                     // 今天 - 显示24小时
                     self.navigation_state

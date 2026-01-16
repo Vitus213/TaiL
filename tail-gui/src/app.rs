@@ -10,7 +10,9 @@ use tail_core::traits::{
 use tail_core::{AppUsage, DailyGoal, Repository};
 use tracing::{debug, info};
 
-use crate::components::{AliasDialog, NavigationMode, SidebarNav, TopTabNav, View};
+use crate::components::{
+    AliasDialog, DefaultStatsView, NavigationMode, SidebarNav, TopTabNav, View,
+};
 use crate::icons::IconCache;
 use crate::theme::{TaiLTheme, ThemeType};
 use crate::views::{
@@ -85,6 +87,9 @@ pub struct TaiLApp {
 
     /// 导航模式
     navigation_mode: NavigationMode,
+
+    /// 默认统计视图
+    default_stats_view: DefaultStatsView,
 }
 
 impl TaiLApp {
@@ -106,9 +111,34 @@ impl TaiLApp {
         let theme_type = ThemeType::default();
         let theme = theme_type.to_theme();
 
-        // 初始化导航状态为当前年份的月视图
-        let current_year = Local::now().year();
-        let navigation_state = TimeNavigationState::new(current_year);
+        // 初始化导航状态为今天的小时视图（根据默认视图设置）
+        let local_now = Local::now();
+        let current_year = local_now.year();
+        let default_stats_view = DefaultStatsView::default();
+
+        let navigation_state = match default_stats_view {
+            DefaultStatsView::Today => {
+                let mut state = TimeNavigationState::new(current_year);
+                state.go_to_today(local_now.year(), local_now.month(), local_now.day());
+                state
+            }
+            DefaultStatsView::Yesterday => {
+                let yesterday = local_now.date_naive() - chrono::Duration::days(1);
+                let mut state = TimeNavigationState::new(yesterday.year());
+                state.go_to_yesterday(yesterday.year(), yesterday.month(), yesterday.day());
+                state
+            }
+            DefaultStatsView::ThisWeek => {
+                let mut state = TimeNavigationState::new(current_year);
+                state.switch_to_this_week(current_year, local_now.month());
+                state
+            }
+            DefaultStatsView::ThisMonth => {
+                let mut state = TimeNavigationState::new(current_year);
+                state.switch_to_this_month(current_year, local_now.month());
+                state
+            }
+        };
 
         Self {
             current_view: View::Dashboard,
@@ -133,6 +163,7 @@ impl TaiLApp {
             theme_applied: false,
             was_visible: true,
             navigation_mode: NavigationMode::default(), // 默认为侧边栏模式
+            default_stats_view,
         }
     }
 
@@ -310,6 +341,38 @@ impl TaiLApp {
         self.theme_type = theme_type;
         self.theme = theme_type.to_theme();
         self.theme_applied = false;
+    }
+
+    /// 应用默认统计视图
+    fn apply_default_stats_view(&mut self) {
+        let local_now = Local::now();
+        match self.default_stats_view {
+            DefaultStatsView::Today => {
+                self.navigation_state.go_to_today(
+                    local_now.year(),
+                    local_now.month(),
+                    local_now.day(),
+                );
+            }
+            DefaultStatsView::Yesterday => {
+                let yesterday = local_now.date_naive() - chrono::Duration::days(1);
+                self.navigation_state.go_to_yesterday(
+                    yesterday.year(),
+                    yesterday.month(),
+                    yesterday.day(),
+                );
+            }
+            DefaultStatsView::ThisWeek => {
+                self.navigation_state
+                    .switch_to_this_week(local_now.year(), local_now.month());
+            }
+            DefaultStatsView::ThisMonth => {
+                self.navigation_state
+                    .switch_to_this_month(local_now.year(), local_now.month());
+            }
+        }
+        // 清除缓存，触发数据重新加载
+        self.stats_usage_cache.clear();
     }
 
     /// 添加每日目标
@@ -574,6 +637,7 @@ impl eframe::App for TaiLApp {
                         let view = SettingsView::new(
                             &self.daily_goals_cache,
                             self.theme_type,
+                            self.default_stats_view,
                             &self.theme,
                         );
                         match view.show(ui) {
@@ -585,6 +649,11 @@ impl eframe::App for TaiLApp {
                             }
                             SettingsAction::ChangeTheme(theme_type) => {
                                 self.change_theme(theme_type);
+                            }
+                            SettingsAction::ChangeDefaultView(default_view) => {
+                                self.default_stats_view = default_view;
+                                // 应用新的默认视图
+                                self.apply_default_stats_view();
                             }
                             SettingsAction::ManageAliases => {
                                 self.open_alias_management();

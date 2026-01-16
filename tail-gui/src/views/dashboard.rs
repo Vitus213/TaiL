@@ -142,7 +142,8 @@ impl<'a> DashboardView<'a> {
             let mut valid_apps_with_non_afk: Vec<_> = valid_apps
                 .iter()
                 .map(|u| {
-                    let non_afk_seconds = u.window_events
+                    let non_afk_seconds = u
+                        .window_events
                         .iter()
                         .filter(|e| !e.is_afk)
                         .map(|e| e.duration_secs)
@@ -287,7 +288,8 @@ impl<'a> DashboardView<'a> {
             .filter(|usage| !usage.app_name.is_empty())
             .map(|usage| {
                 // 只计算非 AFK 事件的总时长
-                let non_afk_seconds: i64 = usage.window_events
+                let non_afk_seconds: i64 = usage
+                    .window_events
                     .iter()
                     .filter(|e| !e.is_afk)
                     .map(|e| e.duration_secs)
@@ -298,7 +300,8 @@ impl<'a> DashboardView<'a> {
                 } else {
                     0.0
                 };
-                let window_title = usage.window_events
+                let window_title = usage
+                    .window_events
                     .iter()
                     .filter(|e| !e.is_afk)
                     .last()
@@ -321,7 +324,9 @@ impl<'a> DashboardView<'a> {
             .show(ui, |ui| {
                 ui.spacing_mut().item_spacing.y = self.theme.spacing / 2.0;
 
-                for (rank, (app_name, total_secs, percentage, window_title)) in app_data.into_iter().enumerate() {
+                for (rank, (app_name, total_secs, percentage, window_title)) in
+                    app_data.into_iter().enumerate()
+                {
                     let mut card = AppCard::new(
                         &app_name,
                         &app_name, // TODO: 使用别名

@@ -191,9 +191,11 @@ impl TimeFormatter {
     ///
     /// 将两个时间点格式化为可读范围
     pub fn format_time_range(start: i64, end: i64) -> String {
-        format!("{} - {}",
+        format!(
+            "{} - {}",
             Self::format_duration(Duration::from_seconds(start), TimeFormatterStyle::Minimal),
-            Self::format_duration(Duration::from_seconds(end), TimeFormatterStyle::Minimal))
+            Self::format_duration(Duration::from_seconds(end), TimeFormatterStyle::Minimal)
+        )
     }
 }
 
@@ -205,33 +207,78 @@ mod tests {
 
     #[test]
     fn test_format_duration_short() {
-        assert_eq!(TimeFormatter::format_seconds(0, TimeFormatterStyle::Short), "0s");
-        assert_eq!(TimeFormatter::format_seconds(30, TimeFormatterStyle::Short), "30s");
-        assert_eq!(TimeFormatter::format_seconds(59, TimeFormatterStyle::Short), "59s");
-        assert_eq!(TimeFormatter::format_seconds(60, TimeFormatterStyle::Short), "1m 0s");
-        assert_eq!(TimeFormatter::format_seconds(125, TimeFormatterStyle::Short), "2m 5s");
-        assert_eq!(TimeFormatter::format_seconds(3665, TimeFormatterStyle::Short), "1h 1m");
+        assert_eq!(
+            TimeFormatter::format_seconds(0, TimeFormatterStyle::Short),
+            "0s"
+        );
+        assert_eq!(
+            TimeFormatter::format_seconds(30, TimeFormatterStyle::Short),
+            "30s"
+        );
+        assert_eq!(
+            TimeFormatter::format_seconds(59, TimeFormatterStyle::Short),
+            "59s"
+        );
+        assert_eq!(
+            TimeFormatter::format_seconds(60, TimeFormatterStyle::Short),
+            "1m 0s"
+        );
+        assert_eq!(
+            TimeFormatter::format_seconds(125, TimeFormatterStyle::Short),
+            "2m 5s"
+        );
+        assert_eq!(
+            TimeFormatter::format_seconds(3665, TimeFormatterStyle::Short),
+            "1h 1m"
+        );
     }
 
     #[test]
     fn test_format_duration_full() {
-        assert_eq!(TimeFormatter::format_seconds(3665, TimeFormatterStyle::Full), "1h 1m 5s");
-        assert_eq!(TimeFormatter::format_seconds(60, TimeFormatterStyle::Full), "1m 0s");
-        assert_eq!(TimeFormatter::format_seconds(59, TimeFormatterStyle::Full), "59s");
+        assert_eq!(
+            TimeFormatter::format_seconds(3665, TimeFormatterStyle::Full),
+            "1h 1m 5s"
+        );
+        assert_eq!(
+            TimeFormatter::format_seconds(60, TimeFormatterStyle::Full),
+            "1m 0s"
+        );
+        assert_eq!(
+            TimeFormatter::format_seconds(59, TimeFormatterStyle::Full),
+            "59s"
+        );
     }
 
     #[test]
     fn test_format_duration_chinese() {
-        assert_eq!(TimeFormatter::format_seconds(3665, TimeFormatterStyle::Chinese), "1小时1分钟");
-        assert_eq!(TimeFormatter::format_seconds(60, TimeFormatterStyle::Chinese), "1分钟");
-        assert_eq!(TimeFormatter::format_seconds(3600, TimeFormatterStyle::Chinese), "1小时0分钟");
+        assert_eq!(
+            TimeFormatter::format_seconds(3665, TimeFormatterStyle::Chinese),
+            "1小时1分钟"
+        );
+        assert_eq!(
+            TimeFormatter::format_seconds(60, TimeFormatterStyle::Chinese),
+            "1分钟"
+        );
+        assert_eq!(
+            TimeFormatter::format_seconds(3600, TimeFormatterStyle::Chinese),
+            "1小时0分钟"
+        );
     }
 
     #[test]
     fn test_format_duration_minimal() {
-        assert_eq!(TimeFormatter::format_seconds(3665, TimeFormatterStyle::Minimal), "1h");
-        assert_eq!(TimeFormatter::format_seconds(300, TimeFormatterStyle::Minimal), "5m");
-        assert_eq!(TimeFormatter::format_seconds(59, TimeFormatterStyle::Minimal), "0m"); // 不到1分钟
+        assert_eq!(
+            TimeFormatter::format_seconds(3665, TimeFormatterStyle::Minimal),
+            "1h"
+        );
+        assert_eq!(
+            TimeFormatter::format_seconds(300, TimeFormatterStyle::Minimal),
+            "5m"
+        );
+        assert_eq!(
+            TimeFormatter::format_seconds(59, TimeFormatterStyle::Minimal),
+            "0m"
+        ); // 不到1分钟
     }
 
     #[test]
@@ -254,21 +301,36 @@ mod tests {
         assert_eq!(TimeFormatter::format_y_axis(9000), "2h 30m");
 
         // 测试边界值
-        assert_eq!(TimeFormatter::format_y_axis(60), "1m");       // 临界：秒->分钟
-        assert_eq!(TimeFormatter::format_y_axis(3600), "1h");     // 临界：分钟->小时
+        assert_eq!(TimeFormatter::format_y_axis(60), "1m"); // 临界：秒->分钟
+        assert_eq!(TimeFormatter::format_y_axis(3600), "1h"); // 临界：分钟->小时
     }
 
     #[test]
     fn test_y_axis_with_styles() {
         // 3665秒 = 1h 1m 5s
         // Auto style: 小数部分很小，会四舍五入为 "1h"
-        assert_eq!(TimeFormatter::format_y_axis_with_style(3665, YAxisStyle::Auto), "1h");
+        assert_eq!(
+            TimeFormatter::format_y_axis_with_style(3665, YAxisStyle::Auto),
+            "1h"
+        );
         // Hours style: 小数部分 > 0.01，显示一位小数
-        assert_eq!(TimeFormatter::format_y_axis_with_style(3665, YAxisStyle::Hours), "1.0h");
+        assert_eq!(
+            TimeFormatter::format_y_axis_with_style(3665, YAxisStyle::Hours),
+            "1.0h"
+        );
         // 完整的小时没有小数
-        assert_eq!(TimeFormatter::format_y_axis_with_style(3600, YAxisStyle::Hours), "1h");
-        assert_eq!(TimeFormatter::format_y_axis_with_style(3665, YAxisStyle::Minutes), "61m");
-        assert_eq!(TimeFormatter::format_y_axis_with_style(3665, YAxisStyle::Seconds), "3665s");
+        assert_eq!(
+            TimeFormatter::format_y_axis_with_style(3600, YAxisStyle::Hours),
+            "1h"
+        );
+        assert_eq!(
+            TimeFormatter::format_y_axis_with_style(3665, YAxisStyle::Minutes),
+            "61m"
+        );
+        assert_eq!(
+            TimeFormatter::format_y_axis_with_style(3665, YAxisStyle::Seconds),
+            "3665s"
+        );
     }
 
     #[test]

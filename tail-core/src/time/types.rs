@@ -27,7 +27,7 @@ impl TimeGranularity {
     pub fn slot_count(&self) -> usize {
         match self {
             Self::Year => 12,
-            Self::Month => 6,  // 最多6周
+            Self::Month => 6, // 最多6周
             Self::Week => 7,
             Self::Day => 24,
             Self::Hour => 60,
@@ -38,14 +38,19 @@ impl TimeGranularity {
     pub fn default_slot_label(&self, index: usize) -> String {
         match self {
             Self::Year => {
-                let months = ["1月", "2月", "3月", "4月", "5月", "6月",
-                             "7月", "8月", "9月", "10月", "11月", "12月"];
+                let months = [
+                    "1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月",
+                    "12月",
+                ];
                 months.get(index).map(|s| s.to_string()).unwrap_or_default()
             }
             Self::Month => format!("第{}周", index + 1),
             Self::Week => {
                 let weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
-                weekdays.get(index).map(|s| s.to_string()).unwrap_or_default()
+                weekdays
+                    .get(index)
+                    .map(|s| s.to_string())
+                    .unwrap_or_default()
             }
             Self::Day => format!("{}h", index),
             Self::Hour => format!("{}m", index),
@@ -139,7 +144,11 @@ impl Default for Duration {
 
 impl fmt::Display for Duration {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.format(super::format::TimeFormatterStyle::Short))
+        write!(
+            f,
+            "{}",
+            self.format(super::format::TimeFormatterStyle::Short)
+        )
     }
 }
 
@@ -216,10 +225,11 @@ impl TimeSlot {
         if seconds <= 0 {
             return;
         }
-        *self.group_durations.entry(group_name.to_string()).or_insert(0) += seconds;
-        self.total_duration = Duration::from_seconds(
-            self.total_duration.as_seconds() + seconds
-        );
+        *self
+            .group_durations
+            .entry(group_name.to_string())
+            .or_insert(0) += seconds;
+        self.total_duration = Duration::from_seconds(self.total_duration.as_seconds() + seconds);
     }
 
     /// 获取所有分组及其时长
@@ -231,7 +241,8 @@ impl TimeSlot {
     ///
     /// 返回 Vec<(分组名, 秒数)>，按时长降序排列
     pub fn top_groups(&self, limit: usize) -> Vec<(String, i64)> {
-        let mut groups: Vec<_> = self.group_durations
+        let mut groups: Vec<_> = self
+            .group_durations
             .iter()
             .map(|(k, v)| (k.clone(), *v))
             .collect();
@@ -337,7 +348,9 @@ impl TimeSlots {
 
 // 管道trait用于链式调用
 trait Pipe<T> {
-    fn pipe(self, f: impl FnOnce(Self) -> T) -> T where Self: Sized;
+    fn pipe(self, f: impl FnOnce(Self) -> T) -> T
+    where
+        Self: Sized;
 }
 
 impl<S, T> Pipe<T> for S

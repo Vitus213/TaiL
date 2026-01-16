@@ -4,7 +4,7 @@ use egui::{Color32, Rounding, ScrollArea, Ui, Vec2};
 use tail_core::DailyGoal;
 use tail_core::db::Config as DbConfig;
 
-use crate::components::{PageHeader, SectionDivider};
+use crate::components::{DefaultStatsView, PageHeader, SectionDivider};
 use crate::theme::{TaiLTheme, ThemeType};
 
 /// 设置视图
@@ -13,6 +13,8 @@ pub struct SettingsView<'a> {
     daily_goals: &'a [DailyGoal],
     /// 当前主题类型
     current_theme_type: ThemeType,
+    /// 当前默认统计视图
+    current_default_view: DefaultStatsView,
     /// 主题
     theme: &'a TaiLTheme,
 }
@@ -25,6 +27,8 @@ pub enum SettingsAction {
     DeleteGoal(String),
     /// 切换主题
     ChangeTheme(ThemeType),
+    /// 更改默认统计视图
+    ChangeDefaultView(DefaultStatsView),
     /// 管理别名
     ManageAliases,
     /// 无操作
@@ -35,11 +39,13 @@ impl<'a> SettingsView<'a> {
     pub fn new(
         daily_goals: &'a [DailyGoal],
         current_theme_type: ThemeType,
+        current_default_view: DefaultStatsView,
         theme: &'a TaiLTheme,
     ) -> Self {
         Self {
             daily_goals,
             current_theme_type,
+            current_default_view,
             theme,
         }
     }
@@ -62,6 +68,16 @@ impl<'a> SettingsView<'a> {
 
                 if let Some(new_theme) = self.show_theme_settings(ui) {
                     action = SettingsAction::ChangeTheme(new_theme);
+                }
+
+                ui.add_space(self.theme.spacing);
+
+                // 统计设置
+                ui.add(SectionDivider::new(self.theme).with_title("统计"));
+                ui.add_space(self.theme.spacing / 2.0);
+
+                if let Some(new_view) = self.show_stats_settings(ui) {
+                    action = SettingsAction::ChangeDefaultView(new_view);
                 }
 
                 ui.add_space(self.theme.spacing);
@@ -165,6 +181,64 @@ impl<'a> SettingsView<'a> {
         );
 
         new_theme
+    }
+
+    /// 显示统计设置
+    fn show_stats_settings(&self, ui: &mut Ui) -> Option<DefaultStatsView> {
+        let mut new_view = None;
+
+        // 默认视图卡片容器
+        let card_width = ui.available_width();
+
+        ui.allocate_ui_with_layout(
+            Vec2::new(card_width, 80.0),
+            egui::Layout::left_to_right(egui::Align::Center),
+            |ui| {
+                // 绘制卡片背景
+                let painter = ui.painter();
+                let rect = ui.available_rect_before_wrap();
+                painter.rect_filled(
+                    rect,
+                    Rounding::same(self.theme.card_rounding),
+                    self.theme.card_background,
+                );
+
+                ui.add_space(self.theme.card_padding);
+
+                ui.vertical(|ui| {
+                    ui.add_space(8.0);
+                    ui.label(
+                        egui::RichText::new("默认视图")
+                            .size(self.theme.body_size)
+                            .color(self.theme.text_color),
+                    );
+
+                    ui.add_space(8.0);
+
+                    ui.horizontal(|ui| {
+                        for view in DefaultStatsView::all() {
+                            let is_selected = *view == self.current_default_view;
+
+                            let button = egui::Button::new(
+                                egui::RichText::new(view.name()).size(self.theme.small_size),
+                            )
+                            .fill(if is_selected {
+                                self.theme.primary_color
+                            } else {
+                                self.theme.card_hover_background
+                            })
+                            .rounding(Rounding::same(6.0));
+
+                            if ui.add(button).clicked() && !is_selected {
+                                new_view = Some(*view);
+                            }
+                        }
+                    });
+                });
+            },
+        );
+
+        new_view
     }
 
     /// 显示目标设置

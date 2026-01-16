@@ -45,7 +45,11 @@ impl TimeRange {
     pub fn to_local_string(&self) -> String {
         let start_local = self.start.with_timezone(&Local);
         let end_local = self.end.with_timezone(&Local);
-        format!("{} ~ {}", start_local.format("%Y-%m-%d %H:%M"), end_local.format("%Y-%m-%d %H:%M"))
+        format!(
+            "{} ~ {}",
+            start_local.format("%Y-%m-%d %H:%M"),
+            end_local.format("%Y-%m-%d %H:%M")
+        )
     }
 }
 
@@ -342,16 +346,14 @@ mod tests {
     #[test]
     fn test_week_of_month() {
         // 2024年1月1日是周一
-        assert_eq!(TimeRangeCalculator::week_of_month(2024, 1, 1), 1);  // 周一
-        assert_eq!(TimeRangeCalculator::week_of_month(2024, 1, 7), 1);  // 周日
-        assert_eq!(TimeRangeCalculator::week_of_month(2024, 1, 8), 2);  // 下周一
+        assert_eq!(TimeRangeCalculator::week_of_month(2024, 1, 1), 1); // 周一
+        assert_eq!(TimeRangeCalculator::week_of_month(2024, 1, 7), 1); // 周日
+        assert_eq!(TimeRangeCalculator::week_of_month(2024, 1, 8), 2); // 下周一
     }
 
     #[test]
     fn test_range_contains() {
-        let range = TimeRangeCalculator::day(
-            NaiveDate::from_ymd_opt(2024, 1, 1).unwrap()
-        );
+        let range = TimeRangeCalculator::day(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap());
         let start = range.start;
         let end = range.end;
         let mid = start + chrono::Duration::seconds(3600);

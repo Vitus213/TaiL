@@ -56,12 +56,12 @@ mod tests {
         use format::TimeFormatter;
 
         // Y轴刻度专用格式化
-        assert_eq!(TimeFormatter::format_y_axis(30), "30s");      // 秒显示为秒
-        assert_eq!(TimeFormatter::format_y_axis(60), "1m");       // 60秒 = 1分钟
-        assert_eq!(TimeFormatter::format_y_axis(300), "5m");      // 5分钟
-        assert_eq!(TimeFormatter::format_y_axis(3600), "1h");     // 1小时
+        assert_eq!(TimeFormatter::format_y_axis(30), "30s"); // 秒显示为秒
+        assert_eq!(TimeFormatter::format_y_axis(60), "1m"); // 60秒 = 1分钟
+        assert_eq!(TimeFormatter::format_y_axis(300), "5m"); // 5分钟
+        assert_eq!(TimeFormatter::format_y_axis(3600), "1h"); // 1小时
         assert_eq!(TimeFormatter::format_y_axis(5400), "1h 30m"); // 1.5小时
-        assert_eq!(TimeFormatter::format_y_axis(7200), "2h");     // 2小时
+        assert_eq!(TimeFormatter::format_y_axis(7200), "2h"); // 2小时
     }
 
     #[test]
