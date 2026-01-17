@@ -8,7 +8,7 @@
 //! 2. **本地时间优先**: 所有计算基于本地时间，存储时再转为UTC
 //! 3. **周一起始**: 一周从周一开始，到周日结束
 
-use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveTime, Utc, Weekday};
+use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveTime, Utc};
 
 /// 时间范围
 ///
@@ -261,7 +261,7 @@ impl TimeRangeCalculator {
     /// # 返回
     /// 周数（从1开始）
     pub fn week_of_month(year: i32, month: u32, day: u32) -> u32 {
-        let date = NaiveDate::from_ymd_opt(year, month, day).unwrap();
+        let _date = NaiveDate::from_ymd_opt(year, month, day).unwrap();
         let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
         let first_weekday = first_day.weekday().num_days_from_monday();
         let day_offset = day as i64 - 1;

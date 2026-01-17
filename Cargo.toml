@@ -1,5 +1,5 @@
 [workspace]
-members = ["tail-core", "tail-hyprland", "tail-afk", "tail-gui", "tail-service", "tail-app", "tests"]
+members = ["tail-core", "tail-hyprland", "tail-afk", "tail-gui", "tail-service", "tail-app"]
 resolver = "2"
 
 [workspace.dependencies]

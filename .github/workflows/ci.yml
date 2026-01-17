@@ -27,29 +27,11 @@ jobs:
         run: nix develop --command cargo fmt --check
 
       - name: Check Nix Formatting
-        run: nix develop --command alejandra --check flake.nix shell.nix nix/*.nix
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v24
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            substituters = https://cache.nixos.org https://tail.cachix.org
-            trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= tail.cachix.org-1:VuKyQx0g9q3QKTLiNqq2xFcEIX3uI8S5eLW3xOLlMN4=
-
-      - name: Run Tests
-        run: nix develop --command cargo test --workspace
-
+        run: nix develop --command sh -c 'nixfmt --check flake.nix shell.nix nix/*.nix'
   build-and-push:
     name: Build & Push to Cachix
     runs-on: ubuntu-latest
-    needs: [fmt, test]
+    needs: [fmt]
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4

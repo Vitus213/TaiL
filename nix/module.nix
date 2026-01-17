@@ -4,9 +4,11 @@
   pkgs,
   ...
 }:
-with lib; let
+with lib;
+let
   cfg = config.services.tail;
-in {
+in
+{
   options.services.tail = {
     enable = mkEnableOption "TaiL window time tracker service";
 
@@ -43,7 +45,13 @@ in {
     };
 
     logLevel = mkOption {
-      type = types.enum ["error" "warn" "info" "debug" "trace"];
+      type = types.enum [
+        "error"
+        "warn"
+        "info"
+        "debug"
+        "trace"
+      ];
       default = "info";
       description = "Log level for the service.";
     };
@@ -57,18 +65,16 @@ in {
 
   config = mkIf cfg.enable {
     # 确保包可用
-    environment.systemPackages =
-      [cfg.package]
-      ++ (lib.optional cfg.installGui cfg.guiPackage);
+    environment.systemPackages = [ cfg.package ] ++ (lib.optional cfg.installGui cfg.guiPackage);
 
     # Systemd 用户服务
     systemd.user.services.tail = {
       description = "TaiL Window Time Tracker Service";
-      documentation = ["https://github.com/Vitus213/tail"];
+      documentation = [ "https://github.com/Vitus213/tail" ];
 
-      wantedBy = mkIf cfg.autoStart ["graphical-session.target"];
-      after = ["graphical-session.target"];
-      partOf = ["graphical-session.target"];
+      wantedBy = mkIf cfg.autoStart [ "graphical-session.target" ];
+      after = [ "graphical-session.target" ];
+      partOf = [ "graphical-session.target" ];
 
       serviceConfig = {
         Type = "simple";

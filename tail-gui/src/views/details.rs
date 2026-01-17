@@ -2,9 +2,10 @@
 //!
 //! 提供详细的应用使用记录列表，支持搜索、过滤和右键菜单
 
-use chrono::{DateTime, Datelike, Local, Utc};
+use chrono::{DateTime, Datelike, Local, NaiveDate, Utc};
 use egui::{ScrollArea, TextEdit, Ui, Vec2};
 use tail_core::AppUsage;
+use tail_core::time::range::TimeRangeCalculator;
 
 use crate::components::{EmptyState, PageHeader, SectionDivider};
 use crate::icons::{AppIcon, IconCache};
@@ -19,6 +20,12 @@ pub struct DetailsView {
     selected_app: Option<String>,
     /// 时间过滤状态
     time_filter: TimeFilter,
+    /// 自定义时间范围 - 开始日期
+    custom_start_date: Option<NaiveDate>,
+    /// 自定义时间范围 - 结束日期
+    custom_end_date: Option<NaiveDate>,
+    /// 是否显示自定义时间范围选择器
+    show_custom_range: bool,
     /// 数据缓存（扁平化的窗口事件）
     flat_data: Vec<WindowEventRecord>,
 }
@@ -30,6 +37,7 @@ pub enum TimeFilter {
     Today,
     ThisWeek,
     ThisMonth,
+    Custom,
 }
 
 /// 窗口事件记录（用于列表显示）
@@ -50,10 +58,16 @@ impl Default for DetailsView {
 
 impl DetailsView {
     pub fn new() -> Self {
+        // 默认自定义范围为最近7天
+        let now = Local::now();
+        let today = now.date_naive();
         Self {
             search_query: String::new(),
             selected_app: None,
             time_filter: TimeFilter::All,
+            custom_start_date: Some(today - chrono::Duration::days(7)),
+            custom_end_date: Some(today),
+            show_custom_range: false,
             flat_data: Vec::new(),
         }
     }
@@ -128,6 +142,7 @@ impl DetailsView {
                 (TimeFilter::Today, "今天"),
                 (TimeFilter::ThisWeek, "本周"),
                 (TimeFilter::ThisMonth, "本月"),
+                (TimeFilter::Custom, "自定义"),
             ];
 
             for (filter, label) in filters {
@@ -157,11 +172,431 @@ impl DetailsView {
                     .clicked()
                 {
                     self.time_filter = filter;
+                    // 点击自定义按钮时展开选择器
+                    if filter == TimeFilter::Custom {
+                        self.show_custom_range = true;
+                    }
                     ui.ctx().request_repaint();
                 }
                 ui.add_space(4.0);
             }
         });
+
+        // 自定义时间范围选择器
+        if self.time_filter == TimeFilter::Custom && self.show_custom_range {
+            ui.add_space(8.0);
+            self.show_custom_date_range(ui, theme);
+        }
+    }
+
+    /// 显示自定义日期范围选择器
+    fn show_custom_date_range(&mut self, ui: &mut Ui, theme: &TaiLTheme) {
+        egui::Frame {
+            fill: egui::Color32::from_rgb(50, 50, 60),
+            stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(100, 100, 120)),
+            rounding: egui::Rounding::same(8.0),
+            inner_margin: egui::Margin::symmetric(12.0, 8.0),
+            outer_margin: egui::Margin::ZERO,
+            shadow: egui::epaint::Shadow::NONE,
+        }
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.label(
+                        egui::RichText::new("开始日期")
+                            .size(theme.small_size)
+                            .color(egui::Color32::WHITE),
+                    );
+                    ui.add_space(4.0);
+                    self.show_date_picker(ui, theme, true);
+                });
+
+                ui.add_space(16.0);
+
+                ui.vertical(|ui| {
+                    ui.label(
+                        egui::RichText::new("结束日期")
+                            .size(theme.small_size)
+                            .color(egui::Color32::WHITE),
+                    );
+                    ui.add_space(4.0);
+                    self.show_date_picker(ui, theme, false);
+                });
+
+                ui.add_space(16.0);
+
+                // 快捷选择按钮
+                ui.vertical(|ui| {
+                    ui.label(
+                        egui::RichText::new("快捷选择")
+                            .size(theme.small_size)
+                            .color(egui::Color32::WHITE),
+                    );
+                    ui.add_space(4.0);
+                    ui.horizontal(|ui| {
+                        if ui
+                            .add(
+                                egui::Button::new(
+                                    egui::RichText::new("最近7天").color(egui::Color32::WHITE),
+                                )
+                                .fill(egui::Color32::from_rgb(80, 80, 100))
+                                .stroke(egui::Stroke::new(
+                                    1.0,
+                                    egui::Color32::from_rgb(120, 120, 140),
+                                ))
+                                .rounding(4.0),
+                            )
+                            .clicked()
+                        {
+                            let now = Local::now();
+                            let today = now.date_naive();
+                            self.custom_start_date = Some(today - chrono::Duration::days(7));
+                            self.custom_end_date = Some(today);
+                            ui.ctx().request_repaint();
+                        }
+                        if ui
+                            .add(
+                                egui::Button::new(
+                                    egui::RichText::new("最近30天").color(egui::Color32::WHITE),
+                                )
+                                .fill(egui::Color32::from_rgb(80, 80, 100))
+                                .stroke(egui::Stroke::new(
+                                    1.0,
+                                    egui::Color32::from_rgb(120, 120, 140),
+                                ))
+                                .rounding(4.0),
+                            )
+                            .clicked()
+                        {
+                            let now = Local::now();
+                            let today = now.date_naive();
+                            self.custom_start_date = Some(today - chrono::Duration::days(30));
+                            self.custom_end_date = Some(today);
+                            ui.ctx().request_repaint();
+                        }
+                    });
+                    ui.horizontal(|ui| {
+                        if ui
+                            .add(
+                                egui::Button::new(
+                                    egui::RichText::new("本月").color(egui::Color32::WHITE),
+                                )
+                                .fill(egui::Color32::from_rgb(80, 80, 100))
+                                .stroke(egui::Stroke::new(
+                                    1.0,
+                                    egui::Color32::from_rgb(120, 120, 140),
+                                ))
+                                .rounding(4.0),
+                            )
+                            .clicked()
+                        {
+                            let now = Local::now();
+                            self.custom_start_date =
+                                Some(NaiveDate::from_ymd_opt(now.year(), now.month(), 1).unwrap());
+                            let last_day = if now.month() == 12 {
+                                NaiveDate::from_ymd_opt(now.year() + 1, 1, 1).unwrap()
+                                    - chrono::Duration::days(1)
+                            } else {
+                                NaiveDate::from_ymd_opt(now.year(), now.month() + 1, 1).unwrap()
+                                    - chrono::Duration::days(1)
+                            };
+                            self.custom_end_date = Some(last_day);
+                            ui.ctx().request_repaint();
+                        }
+                        if ui
+                            .add(
+                                egui::Button::new(
+                                    egui::RichText::new("上月").color(egui::Color32::WHITE),
+                                )
+                                .fill(egui::Color32::from_rgb(80, 80, 100))
+                                .stroke(egui::Stroke::new(
+                                    1.0,
+                                    egui::Color32::from_rgb(120, 120, 140),
+                                ))
+                                .rounding(4.0),
+                            )
+                            .clicked()
+                        {
+                            let now = Local::now();
+                            let (year, month) = if now.month() == 1 {
+                                (now.year() - 1, 12)
+                            } else {
+                                (now.year(), now.month() - 1)
+                            };
+                            self.custom_start_date =
+                                Some(NaiveDate::from_ymd_opt(year, month, 1).unwrap());
+                            let last_day = if month == 12 {
+                                NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
+                                    - chrono::Duration::days(1)
+                            } else {
+                                NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap()
+                                    - chrono::Duration::days(1)
+                            };
+                            self.custom_end_date = Some(last_day);
+                            ui.ctx().request_repaint();
+                        }
+                    });
+                });
+            });
+
+            // 显示当前选择的时间范围
+            if let (Some(start), Some(end)) = (self.custom_start_date, self.custom_end_date) {
+                ui.add_space(8.0);
+                ui.separator();
+                ui.add_space(8.0);
+                let days = (end - start).num_days() + 1;
+                ui.horizontal(|ui| {
+                    ui.label(
+                        egui::RichText::new(format!(
+                            "📅 {} ~ {} (共 {} 天)",
+                            start.format("%Y-%m-%d"),
+                            end.format("%Y-%m-%d"),
+                            days
+                        ))
+                        .size(theme.body_size)
+                        .color(egui::Color32::WHITE)
+                        .strong(),
+                    );
+                });
+            }
+        });
+    }
+
+    /// 显示日期选择器
+    fn show_date_picker(&mut self, ui: &mut Ui, theme: &TaiLTheme, is_start: bool) {
+        let date = if is_start {
+            self.custom_start_date
+        } else {
+            self.custom_end_date
+        };
+
+        if let Some(d) = date {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 4.0;
+
+                // 年份选择
+                let mut year = d.year();
+                let btn = ui.add_sized(
+                    Vec2::new(24.0, 22.0),
+                    egui::Button::new(
+                        egui::RichText::new("<")
+                            .size(theme.body_size)
+                            .color(egui::Color32::WHITE),
+                    )
+                    .fill(egui::Color32::from_rgb(80, 80, 100))
+                    .stroke(egui::Stroke::new(
+                        1.0,
+                        egui::Color32::from_rgb(120, 120, 140),
+                    ))
+                    .rounding(4.0),
+                );
+                if btn.hovered() {
+                    ui.ctx().request_repaint();
+                }
+                if btn.clicked() {
+                    year -= 1;
+                    self.update_date(is_start, year, d.month(), d.day(), ui.ctx());
+                }
+                ui.add_sized(
+                    Vec2::new(50.0, 22.0),
+                    egui::Label::new(
+                        egui::RichText::new(format!("{:04}", year))
+                            .size(theme.body_size)
+                            .color(egui::Color32::WHITE)
+                            .strong(),
+                    ),
+                );
+                let btn = ui.add_sized(
+                    Vec2::new(24.0, 22.0),
+                    egui::Button::new(
+                        egui::RichText::new(">")
+                            .size(theme.body_size)
+                            .color(egui::Color32::WHITE),
+                    )
+                    .fill(egui::Color32::from_rgb(80, 80, 100))
+                    .stroke(egui::Stroke::new(
+                        1.0,
+                        egui::Color32::from_rgb(120, 120, 140),
+                    ))
+                    .rounding(4.0),
+                );
+                if btn.hovered() {
+                    ui.ctx().request_repaint();
+                }
+                if btn.clicked() {
+                    year += 1;
+                    self.update_date(is_start, year, d.month(), d.day(), ui.ctx());
+                }
+
+                // 分隔符
+                ui.label(
+                    egui::RichText::new("-")
+                        .size(theme.body_size)
+                        .color(egui::Color32::from_gray(180)),
+                );
+
+                // 月份选择
+                let mut month = d.month();
+                let btn = ui.add_sized(
+                    Vec2::new(24.0, 22.0),
+                    egui::Button::new(
+                        egui::RichText::new("<")
+                            .size(theme.body_size)
+                            .color(egui::Color32::WHITE),
+                    )
+                    .fill(egui::Color32::from_rgb(80, 80, 100))
+                    .stroke(egui::Stroke::new(
+                        1.0,
+                        egui::Color32::from_rgb(120, 120, 140),
+                    ))
+                    .rounding(4.0),
+                );
+                if month > 1 && btn.clicked() {
+                    month -= 1;
+                    self.update_date(is_start, year, month, d.day(), ui.ctx());
+                }
+                ui.add_sized(
+                    Vec2::new(30.0, 22.0),
+                    egui::Label::new(
+                        egui::RichText::new(format!("{:02}", month))
+                            .size(theme.body_size)
+                            .color(egui::Color32::WHITE)
+                            .strong(),
+                    ),
+                );
+                let btn = ui.add_sized(
+                    Vec2::new(24.0, 22.0),
+                    egui::Button::new(
+                        egui::RichText::new(">")
+                            .size(theme.body_size)
+                            .color(egui::Color32::WHITE),
+                    )
+                    .fill(egui::Color32::from_rgb(80, 80, 100))
+                    .stroke(egui::Stroke::new(
+                        1.0,
+                        egui::Color32::from_rgb(120, 120, 140),
+                    ))
+                    .rounding(4.0),
+                );
+                if month < 12 && btn.clicked() {
+                    month += 1;
+                    self.update_date(is_start, year, month, d.day(), ui.ctx());
+                }
+
+                // 分隔符
+                ui.label(
+                    egui::RichText::new("-")
+                        .size(theme.body_size)
+                        .color(egui::Color32::from_gray(180)),
+                );
+
+                // 日期选择
+                let mut day = d.day();
+                let days_in_month = Self::days_in_month(year, month);
+                let btn = ui.add_sized(
+                    Vec2::new(24.0, 22.0),
+                    egui::Button::new(
+                        egui::RichText::new("<")
+                            .size(theme.body_size)
+                            .color(egui::Color32::WHITE),
+                    )
+                    .fill(egui::Color32::from_rgb(80, 80, 100))
+                    .stroke(egui::Stroke::new(
+                        1.0,
+                        egui::Color32::from_rgb(120, 120, 140),
+                    ))
+                    .rounding(4.0),
+                );
+                if day > 1 && btn.clicked() {
+                    day -= 1;
+                    self.update_date(is_start, year, month, day, ui.ctx());
+                }
+                ui.add_sized(
+                    Vec2::new(30.0, 22.0),
+                    egui::Label::new(
+                        egui::RichText::new(format!("{:02}", day))
+                            .size(theme.body_size)
+                            .color(egui::Color32::WHITE)
+                            .strong(),
+                    ),
+                );
+                let btn = ui.add_sized(
+                    Vec2::new(24.0, 22.0),
+                    egui::Button::new(
+                        egui::RichText::new(">")
+                            .size(theme.body_size)
+                            .color(egui::Color32::WHITE),
+                    )
+                    .fill(egui::Color32::from_rgb(80, 80, 100))
+                    .stroke(egui::Stroke::new(
+                        1.0,
+                        egui::Color32::from_rgb(120, 120, 140),
+                    ))
+                    .rounding(4.0),
+                );
+                if day < days_in_month && btn.clicked() {
+                    day += 1;
+                    self.update_date(is_start, year, month, day, ui.ctx());
+                }
+
+                // 星期几显示
+                let weekday = d.weekday();
+                let weekday_names = ["一", "二", "三", "四", "五", "六", "日"];
+                ui.label(
+                    egui::RichText::new(format!(
+                        " 周{}",
+                        weekday_names[weekday.num_days_from_monday() as usize]
+                    ))
+                    .size(theme.small_size)
+                    .color(egui::Color32::from_gray(200)),
+                );
+            });
+        }
+    }
+
+    /// 更新日期
+    fn update_date(
+        &mut self,
+        is_start: bool,
+        year: i32,
+        month: u32,
+        day: u32,
+        ctx: &egui::Context,
+    ) {
+        let days_in_month = Self::days_in_month(year, month);
+        let day = day.min(days_in_month);
+
+        if let Some(date) = NaiveDate::from_ymd_opt(year, month, day) {
+            if is_start {
+                self.custom_start_date = Some(date);
+                // 确保开始日期不晚于结束日期
+                if let Some(end) = self.custom_end_date
+                    && date > end
+                {
+                    self.custom_end_date = Some(date);
+                }
+            } else {
+                self.custom_end_date = Some(date);
+                // 确保结束日期不早于开始日期
+                if let Some(start) = self.custom_start_date
+                    && date < start
+                {
+                    self.custom_start_date = Some(date);
+                }
+            }
+            ctx.request_repaint();
+        }
+    }
+
+    /// 获取某年某月的天数
+    fn days_in_month(year: i32, month: u32) -> u32 {
+        if month == 12 {
+            NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
+        } else {
+            NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap()
+        }
+        .signed_duration_since(NaiveDate::from_ymd_opt(year, month, 1).unwrap())
+        .num_days() as u32
     }
 
     /// 显示数据列表
@@ -339,46 +774,43 @@ impl DetailsView {
                     }
                 }
 
-                // 时间过滤
+                // 时间过滤 - 使用统一的时间范围计算器
                 match self.time_filter {
                     TimeFilter::All => true,
                     TimeFilter::Today => {
-                        let now = Local::now();
-                        let today_start = now
-                            .date_naive()
-                            .and_hms_opt(0, 0, 0)
-                            .unwrap()
-                            .and_local_timezone(Local)
-                            .unwrap()
-                            .with_timezone(&Utc);
-                        record.start_time >= today_start
+                        let range = TimeRangeCalculator::today();
+                        record.start_time >= range.start
                     }
                     TimeFilter::ThisWeek => {
-                        // 本周：从本周一到今天
-                        let now = Local::now();
-                        let weekday = now.weekday().num_days_from_monday();
-                        let week_start = now.date_naive() - chrono::Duration::days(weekday as i64);
-                        let week_start_utc = week_start
-                            .and_hms_opt(0, 0, 0)
-                            .unwrap()
-                            .and_local_timezone(Local)
-                            .unwrap()
-                            .with_timezone(&Utc);
-                        record.start_time >= week_start_utc
+                        let range = TimeRangeCalculator::this_week();
+                        record.start_time >= range.start
                     }
                     TimeFilter::ThisMonth => {
-                        // 本月：从本月1号到今天
-                        let now = Local::now();
-                        let month_start = now
-                            .date_naive()
-                            .with_day(1)
-                            .unwrap()
-                            .and_hms_opt(0, 0, 0)
-                            .unwrap()
-                            .and_local_timezone(Local)
-                            .unwrap()
-                            .with_timezone(&Utc);
-                        record.start_time >= month_start
+                        let range = TimeRangeCalculator::this_month();
+                        record.start_time >= range.start
+                    }
+                    TimeFilter::Custom => {
+                        // 自定义时间范围
+                        if let (Some(start_date), Some(end_date)) =
+                            (self.custom_start_date, self.custom_end_date)
+                        {
+                            // 计算开始和结束时间的 UTC 时间戳
+                            let start_utc = start_date
+                                .and_hms_opt(0, 0, 0)
+                                .unwrap()
+                                .and_local_timezone(Local)
+                                .unwrap()
+                                .with_timezone(&Utc);
+                            let end_utc = end_date
+                                .and_hms_opt(23, 59, 59)
+                                .unwrap()
+                                .and_local_timezone(Local)
+                                .unwrap()
+                                .with_timezone(&Utc);
+                            record.start_time >= start_utc && record.start_time <= end_utc
+                        } else {
+                            true
+                        }
                     }
                 }
             })

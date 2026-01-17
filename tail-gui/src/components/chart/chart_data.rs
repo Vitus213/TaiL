@@ -271,7 +271,7 @@ impl<'a> ChartDataBuilder<'a> {
                         remaining_seconds
                     } else {
                         let duration_in_hour = (next_hour - current).num_seconds().max(0);
-                        remaining_seconds.min(duration_in_hour as i64)
+                        remaining_seconds.min(duration_in_hour)
                     };
 
                     if hour < slots.len() && seconds_in_this_hour > 0 {

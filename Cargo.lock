@@ -3305,15 +3305,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tail-tests"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "tail-core",
- "tempfile",
-]
-
-[[package]]
 name = "tempfile"
 version = "3.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

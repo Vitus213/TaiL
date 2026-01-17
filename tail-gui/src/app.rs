@@ -46,6 +46,9 @@ pub struct TaiLApp {
     /// 统计页面数据缓存
     stats_usage_cache: Vec<AppUsage>,
 
+    /// 详细记录数据缓存（所有历史数据）
+    details_usage_cache: Vec<AppUsage>,
+
     /// 每日目标缓存
     daily_goals_cache: Vec<DailyGoal>,
 
@@ -54,6 +57,9 @@ pub struct TaiLApp {
 
     /// 统计页面上次刷新时间
     stats_last_refresh: Option<DateTime<Utc>>,
+
+    /// 详细记录上次刷新时间
+    details_last_refresh: Option<DateTime<Utc>>,
 
     /// 分类页面上次刷新时间
     categories_last_refresh: Option<DateTime<Utc>>,
@@ -149,9 +155,11 @@ impl TaiLApp {
             runtime,
             dashboard_usage_cache: Vec::new(),
             stats_usage_cache: Vec::new(),
+            details_usage_cache: Vec::new(),
             daily_goals_cache: Vec::new(),
             dashboard_last_refresh: None,
             stats_last_refresh: None,
+            details_last_refresh: None,
             categories_last_refresh: None,
             theme_type,
             theme: theme.clone(),
@@ -259,6 +267,43 @@ impl TaiLApp {
         }
 
         self.stats_last_refresh = Some(now);
+    }
+
+    /// 刷新详细记录数据（所有历史数据）
+    fn refresh_details_data(&mut self) {
+        let now = Utc::now();
+        // 每10秒刷新一次（详细记录数据量大，减少刷新频率）
+        if let Some(last) = self.details_last_refresh {
+            let elapsed = now.signed_duration_since(last).num_seconds();
+            if elapsed < 10 {
+                return;
+            }
+        }
+
+        // 详细记录需要加载所有历史数据
+        // 使用一个很早的时间作为开始时间
+        let start = DateTime::from_timestamp(0, 0).unwrap();
+
+        debug!(
+            start = %start,
+            end = %now,
+            "刷新详细记录数据"
+        );
+
+        // 使用 tokio runtime 处理异步调用
+        match self.runtime.block_on(async {
+            AppUsageQuery::get_app_usage(&self.repo.usage_service(), start, now).await
+        }) {
+            Ok(usage) => {
+                debug!(count = usage.len(), "详细记录数据获取成功");
+                self.details_usage_cache = usage;
+            }
+            Err(e) => {
+                debug!(error = %e, "获取详细记录数据失败");
+            }
+        }
+
+        self.details_last_refresh = Some(now);
     }
 
     /// 获取统计页面时间范围的开始和结束时间
@@ -542,7 +587,7 @@ impl eframe::App for TaiLApp {
             View::Dashboard => self.refresh_dashboard_data(),
             View::Statistics => self.refresh_stats_data(),
             View::Categories => self.refresh_dashboard_data(), // 分类页面也刷新仪表板数据
-            View::Details => self.refresh_dashboard_data(),    // 详细页面也刷新仪表板数据
+            View::Details => self.refresh_details_data(),      // 详细页面刷新详细数据
             View::Settings => self.refresh_dashboard_data(),   // 设置页面也刷新仪表板数据
         }
 
@@ -629,7 +674,7 @@ impl eframe::App for TaiLApp {
                     }
                     View::Details => {
                         // 更新数据并显示持久化的详细视图
-                        self.details_view.update_data(&self.dashboard_usage_cache);
+                        self.details_view.update_data(&self.details_usage_cache);
                         self.details_view
                             .show(ui, &self.theme, &mut self.icon_cache);
                     }

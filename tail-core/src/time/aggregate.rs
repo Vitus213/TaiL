@@ -11,7 +11,7 @@
 use chrono::{DateTime, Datelike, Local, Timelike, Utc};
 use std::collections::HashMap;
 
-use crate::models::{AppUsage, WindowEvent};
+use crate::models::AppUsage;
 use crate::time::range::TimeRange;
 use crate::time::types::{TimeGranularity, TimeSlot, TimeSlots};
 

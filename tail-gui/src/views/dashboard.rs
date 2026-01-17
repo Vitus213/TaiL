@@ -303,8 +303,7 @@ impl<'a> DashboardView<'a> {
                 let window_title = usage
                     .window_events
                     .iter()
-                    .filter(|e| !e.is_afk)
-                    .last()
+                    .rfind(|e| !e.is_afk)
                     .map(|e| e.window_title.clone());
                 (
                     usage.app_name.clone(),

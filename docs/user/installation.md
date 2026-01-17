@@ -42,6 +42,18 @@ TaiL 提供完整的 Nix Flakes 支持，可以轻松集成到 NixOS 系统中�
   };
 }
 ```
+建议添加Cachix，避免在本地构建
+```
+    trusted-substituters = [
+      "https://tail.cachix.org"
+    ];
+
+    trusted-public-keys = [
+      "tail.cachix.org-1:8wrCmBbcfPfvYdZ3b/bmkcPqs0AukBJug08DIBu19Ao="
+    ];
+    builders-use-substitutes = true;
+
+```
 
 #### 2. 在 configuration.nix 中启用服务
 

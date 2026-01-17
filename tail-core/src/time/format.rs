@@ -63,7 +63,7 @@ impl TimeFormatter {
     /// assert_eq!(TimeFormatter::format_duration(d, TimeFormatterStyle::Chinese), "1小时1分钟");
     /// ```
     pub fn format_duration(duration: Duration, style: TimeFormatterStyle) -> String {
-        let secs = duration.as_seconds();
+        let _secs = duration.as_seconds();
         let hours = duration.hours();
         let minutes = duration.minutes();
         let seconds = duration.seconds();

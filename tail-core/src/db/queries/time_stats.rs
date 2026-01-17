@@ -308,7 +308,7 @@ impl TimeStatsQueryImpl {
                     remaining_seconds
                 } else {
                     let duration_in_hour = (next_hour - current).num_seconds().max(0);
-                    remaining_seconds.min(duration_in_hour as i64)
+                    remaining_seconds.min(duration_in_hour)
                 };
 
                 if hour < 24 && seconds_in_this_hour > 0 {
@@ -321,6 +321,7 @@ impl TimeStatsQueryImpl {
         }
 
         // 转换为 PeriodUsage
+        #[allow(clippy::needless_range_loop)]
         for hour in 0..24 {
             result.push(PeriodUsage {
                 label: format!("{}时", hour),
