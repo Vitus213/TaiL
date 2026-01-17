@@ -130,10 +130,10 @@ impl HyprlandIpc {
                 debug!(event_type = event_name, "事件解析成功");
                 callback(event);
             } else {
-                warn!(
+                debug!(
                     raw_event = %line_str,
                     event_count = event_count,
-                    "事件解析失败，无法识别的事件格式"
+                    "忽略未处理的事件类型"
                 );
             }
 
