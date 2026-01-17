@@ -43,11 +43,10 @@ jobs:
             experimental-features = nix-command flakes
 
       - name: Build & Push to Cachix
-        uses: cachix/cachix-action@v13
+        uses: cachix/cachix-action@v15
         with:
           name: tail
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-          push-to-cache: true
 
       - name: Build Release Binaries
         run: |
