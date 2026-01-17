@@ -11,7 +11,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  fmt:
+  check:
     name: Format Check
     runs-on: ubuntu-latest
     steps:
@@ -23,16 +23,14 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
-      - name: Check Rust Formatting
-        run: nix develop --command cargo fmt --check
+      - name: Format Check
+        run: |
+          nix develop --command cargo fmt --check
+          nix develop --command sh -c 'nixfmt --check flake.nix shell.nix nix/*.nix'
 
-      - name: Check Nix Formatting
-        run: nix develop --command sh -c 'nixfmt --check flake.nix shell.nix nix/*.nix'
-  build-and-push:
-    name: Build & Push to Cachix
+  build:
+    name: Build
     runs-on: ubuntu-latest
-    needs: [fmt]
-    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
 
@@ -42,13 +40,13 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
-      - name: Build & Push to Cachix
+      - name: Setup Cachix
         uses: cachix/cachix-action@v15
         with:
           name: tail
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+          skipPush: ${{ github.event_name != 'push' }}
 
-      - name: Build Release Binaries
+      - name: Build
         run: |
-          nix build .#tail-app --print-build-logs
-          nix build .#tail-service --print-build-logs
+          nix build .#tail-app .#tail-service --print-build-logs
