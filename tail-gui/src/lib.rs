@@ -3,6 +3,7 @@
 //! 这是 TaiL 时间追踪工具的图形用户界面模块。
 //! 使用 egui 框架构建，提供现代化、美观的用户体验。
 
+pub mod async_bridge;
 pub mod app;
 pub mod components;
 pub mod fonts;
@@ -14,6 +15,7 @@ pub mod utils;
 pub mod views;
 
 pub use app::*;
+pub use async_bridge::*;
 pub use fonts::setup_fonts;
 pub use theme::{TaiLTheme, ThemeType};
 pub use utils::{duration, filter, time_range};

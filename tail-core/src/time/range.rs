@@ -311,6 +311,7 @@ impl TimeRangeCalculator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Weekday;
 
     #[test]
     fn test_today_range() {
