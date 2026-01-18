@@ -6,6 +6,9 @@ pub mod pool;
 pub mod queries;
 pub mod repositories;
 
+// 新的领域层仓储适配器
+pub mod sqlite_event_repo;
+
 use pool::{create_pool, init_schema};
 use std::sync::Arc;
 
@@ -14,6 +17,9 @@ use crate::services::{CategoryServiceImpl, GoalServiceImpl, UsageServiceImpl};
 // 重新导出 pool 模块的内容
 pub use pool::DbConfig as Config;
 pub use pool::DbPool;
+
+// 重新导出新的仓储适配器
+pub use sqlite_event_repo::SqliteEventRepository;
 
 // ============================================================================
 // Repository - 模块化数据库入口

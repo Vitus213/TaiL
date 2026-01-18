@@ -26,6 +26,10 @@ pub struct DetailsView {
     custom_end_date: Option<NaiveDate>,
     /// 是否显示自定义时间范围选择器
     show_custom_range: bool,
+    /// 时长过滤器
+    duration_filter: DurationFilter,
+    /// 自定义时长（秒）
+    custom_duration_secs: i64,
     /// 数据缓存（扁平化的窗口事件）
     flat_data: Vec<WindowEventRecord>,
 }
@@ -38,6 +42,43 @@ pub enum TimeFilter {
     ThisWeek,
     ThisMonth,
     Custom,
+}
+
+/// 时长过滤器
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DurationFilter {
+    All,
+    LessThan1Min,
+    AtLeast1Min,
+    AtLeast5Min,
+    AtLeast15Min,
+    AtLeast30Min,
+    AtLeast1Hour,
+    AtLeast2Hours,
+    Custom,
+}
+
+impl DurationFilter {
+    fn min_seconds(&self, custom_secs: i64) -> i64 {
+        match self {
+            DurationFilter::All => 0,
+            DurationFilter::LessThan1Min => 0,
+            DurationFilter::AtLeast1Min => 60,
+            DurationFilter::AtLeast5Min => 300,
+            DurationFilter::AtLeast15Min => 900,
+            DurationFilter::AtLeast30Min => 1800,
+            DurationFilter::AtLeast1Hour => 3600,
+            DurationFilter::AtLeast2Hours => 7200,
+            DurationFilter::Custom => custom_secs,
+        }
+    }
+
+    fn max_seconds(&self) -> Option<i64> {
+        match self {
+            DurationFilter::LessThan1Min => Some(60),
+            _ => None,
+        }
+    }
 }
 
 /// 窗口事件记录（用于列表显示）
@@ -68,6 +109,8 @@ impl DetailsView {
             custom_start_date: Some(today - chrono::Duration::days(7)),
             custom_end_date: Some(today),
             show_custom_range: false,
+            duration_filter: DurationFilter::All,
+            custom_duration_secs: 300, // 默认5分钟
             flat_data: Vec::new(),
         }
     }
@@ -181,6 +224,78 @@ impl DetailsView {
                 ui.add_space(4.0);
             }
         });
+
+        ui.add_space(8.0);
+
+        // 时长过滤器
+        ui.horizontal(|ui| {
+            ui.label(
+                egui::RichText::new("使用时长:")
+                    .size(theme.small_size)
+                    .color(theme.secondary_text_color),
+            );
+            ui.add_space(8.0);
+
+            let duration_filters = [
+                (DurationFilter::All, "全部"),
+                (DurationFilter::LessThan1Min, "<1分"),
+                (DurationFilter::AtLeast1Min, "≥1分"),
+                (DurationFilter::AtLeast5Min, "≥5分"),
+                (DurationFilter::AtLeast15Min, "≥15分"),
+                (DurationFilter::AtLeast30Min, "≥30分"),
+                (DurationFilter::AtLeast1Hour, "≥1时"),
+                (DurationFilter::AtLeast2Hours, "≥2时"),
+                (DurationFilter::Custom, "自定义"),
+            ];
+
+            for (filter, label) in duration_filters {
+                let is_selected = self.duration_filter == filter;
+                if ui
+                    .add(
+                        egui::Button::new(egui::RichText::new(label).size(theme.small_size).color(
+                            if is_selected {
+                                egui::Color32::WHITE
+                            } else {
+                                theme.text_color
+                            },
+                        ))
+                        .fill(if is_selected {
+                            egui::Color32::from_rgb(100, 100, 180) // 使用不同颜色区分
+                        } else {
+                            egui::Color32::TRANSPARENT
+                        })
+                        .stroke(if is_selected {
+                            egui::Stroke::NONE
+                        } else {
+                            egui::Stroke::new(1.0, theme.divider_color)
+                        })
+                        .rounding(4.0)
+                        .min_size(Vec2::new(55.0, 24.0)),
+                    )
+                    .clicked()
+                {
+                    self.duration_filter = filter;
+                    ui.ctx().request_repaint();
+                }
+                ui.add_space(2.0);
+            }
+        });
+
+        // 自定义时长输入
+        if self.duration_filter == DurationFilter::Custom {
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new("最小时长(秒):")
+                        .size(theme.small_size)
+                        .color(theme.secondary_text_color),
+                );
+                ui.add_space(4.0);
+                if ui.add(egui::DragValue::new(&mut self.custom_duration_secs).speed(60).range(1..=86400)).changed() {
+                    ui.ctx().request_repaint();
+                }
+            });
+        }
 
         // 自定义时间范围选择器
         if self.time_filter == TimeFilter::Custom && self.show_custom_range {
@@ -812,7 +927,16 @@ impl DetailsView {
                             true
                         }
                     }
-                }
+                };
+
+                // 时长过滤
+                let min_secs = self.duration_filter.min_seconds(self.custom_duration_secs);
+                let max_secs = self.duration_filter.max_seconds();
+
+                let meets_min = record.duration_secs >= min_secs;
+                let meets_max = max_secs.map_or(true, |max| record.duration_secs < max);
+
+                meets_min && meets_max
             })
             .collect();
 

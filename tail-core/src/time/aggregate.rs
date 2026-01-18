@@ -397,6 +397,7 @@ impl<'a> TimeAggregator<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::WindowEvent;
     use chrono::{NaiveDate, NaiveTime};
 
     fn create_test_app_usage() -> Vec<AppUsage> {

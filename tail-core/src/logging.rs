@@ -61,7 +61,7 @@ pub fn init_logging(output: LogOutput, default_level: &str) {
 ///
 /// # 示例
 /// ```no_run
-/// use tail_core::logging::unwrap_or_log;
+/// use tail_core::unwrap_or_log;
 ///
 /// let result: Result<i32, &str> = Err("error");
 /// let value = unwrap_or_log!(result, "Failed to get value");
@@ -91,7 +91,7 @@ macro_rules! unwrap_or_log {
 ///
 /// # 示例
 /// ```no_run
-/// use tail_core::logging::unwrap_some_or_log;
+/// use tail_core::unwrap_some_or_log;
 ///
 /// let value: Option<i32> = None;
 /// let v = unwrap_some_or_log!(value, "Value was None");
