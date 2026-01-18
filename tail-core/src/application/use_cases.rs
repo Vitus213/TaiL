@@ -80,10 +80,7 @@ impl<R> StatsQueryPort for StatsQueryUseCase<R>
 where
     R: EventRepositoryPort + Send + Sync,
 {
-    async fn get_dashboard(&self) -> Result<DashboardView, AppError> {
-        // 暂时使用本周数据范围，以便在数据较少时也能显示内容
-        let range = TimeRange::this_week();
-
+    async fn get_dashboard(&self, range: &TimeRange) -> Result<DashboardView, AppError> {
         let events = self
             .event_repo
             .find_by_range(range.start, range.end)
@@ -101,6 +98,7 @@ where
 
         Ok(DashboardView {
             time_range: range.to_string(),
+            range_start: range.start,
             total_duration: format_duration(total_seconds),
             total_seconds,
             top_apps,
@@ -127,6 +125,7 @@ where
 
         Ok(StatsView {
             breadcrumb: navigation.breadcrumb(),
+            range_start: range.start,
             period_breakdown,
             app_breakdown: top_apps,
             time_range: range.to_string(),
@@ -256,7 +255,8 @@ mod tests {
         let repo = MockEventRepository;
         let use_case = StatsQueryUseCase::new(repo);
 
-        let dashboard = use_case.get_dashboard().await.unwrap();
+        let range = TimeRange::this_week();
+        let dashboard = use_case.get_dashboard(&range).await.unwrap();
 
         assert!(!dashboard.top_apps.is_empty());
         assert!(dashboard.total_seconds > 0);

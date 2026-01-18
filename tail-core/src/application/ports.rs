@@ -7,6 +7,7 @@ use chrono::{DateTime, Utc};
 
 use crate::domain::{
     aggregation::AggregationResult, navigation::NavigationPath, time_event::TimeEvent,
+    time_event::TimeRange,
 };
 
 // ============================================================================
@@ -18,8 +19,8 @@ use crate::domain::{
 /// GUI/CLI/TUI 等适配器通过此端口查询统计数据
 #[async_trait]
 pub trait StatsQueryPort: Send + Sync {
-    /// 获取仪表板数据（今日统计）
-    async fn get_dashboard(&self) -> Result<DashboardView, AppError>;
+    /// 获取仪表板数据（指定时间范围）
+    async fn get_dashboard(&self, range: &TimeRange) -> Result<DashboardView, AppError>;
 
     /// 获取统计数据（根据导航路径）
     async fn get_stats(&self, navigation: &NavigationPath) -> Result<StatsView, AppError>;
@@ -88,6 +89,8 @@ pub trait EventRepositoryPort: Send + Sync {
 pub struct DashboardView {
     /// 时间范围
     pub time_range: String,
+    /// 时间范围开始时间（用于准确计算时间戳）
+    pub range_start: DateTime<Utc>,
     /// 总时长（格式化）
     pub total_duration: String,
     /// 总时长（秒）
@@ -112,6 +115,8 @@ pub struct AppUsageItem {
 pub struct StatsView {
     /// 导航面包屑
     pub breadcrumb: String,
+    /// 时间范围开始时间（用于准确计算时间戳）
+    pub range_start: DateTime<Utc>,
     /// 时间段分布
     pub period_breakdown: AggregationResult,
     /// 应用排行

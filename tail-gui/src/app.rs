@@ -319,7 +319,11 @@ impl TaiLApp {
         });
 
         // 同时刷新每日目标
-        let _ = self.async_bridge.send_command(GuiCommand::GetAllCategories);
+        if self.daily_goals_last_refresh.is_none()
+            || Utc::now().signed_duration_since(self.daily_goals_last_refresh.unwrap()).num_seconds() >= 5
+        {
+            let _ = self.async_bridge.send_command(GuiCommand::GetDailyGoals);
+        }
     }
 
     /// 请求刷新统计页面数据（非阻塞）

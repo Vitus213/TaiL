@@ -7,7 +7,7 @@
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use tail_core::models::{Category, DailyGoal};
-use tail_core::{AppUsage, CategoryUsage, RepositoryAdapter, StatsQueryUseCase, StatsQueryPort, dashboard_view_to_app_usage, stats_view_to_app_usage, AppError};
+use tail_core::{AppUsage, CategoryUsage, RepositoryAdapter, StatsQueryUseCase, StatsQueryPort, dashboard_view_to_app_usage, AppError};
 use tokio::sync::mpsc;
 
 /// GUI 命令枚举
@@ -30,6 +30,9 @@ pub enum GuiCommand {
 
     /// 删除每日目标
     DeleteDailyGoal(String),
+
+    /// 获取每日目标列表
+    GetDailyGoals,
 
     /// 设置应用别名
     SetAppAlias { app_name: String, alias: String },
@@ -155,31 +158,40 @@ impl AsyncBridge {
 
                 while let Some(cmd) = command_rx.recv().await {
                     match cmd {
-                        GuiCommand::RefreshDashboard { start: _start, end: _end } => {
-                            // 使用新的用例层获取仪表板数据
-                            let result: Result<Vec<AppUsage>, String> = stats_use_case.get_dashboard().await
+                        GuiCommand::RefreshDashboard { start, end } => {
+                            // 使用新的用例层获取仪表板数据，传递正确的时间范围
+                            let range = tail_core::domain::TimeRange::new(start, end)
+                                .unwrap_or_else(|_| tail_core::domain::TimeRange::this_week());
+                            let result: Result<Vec<AppUsage>, String> = stats_use_case.get_dashboard(&range).await
                                 .map(|view| dashboard_view_to_app_usage(view))
                                 .map_err(|e: AppError| e.to_string());
 
                             let _ = response_tx.send(GuiResponse::DashboardData(result));
                         }
 
-                        GuiCommand::RefreshStats { start: _start, end: _end } => {
-                            // 使用新的用例层获取统计数据
-                            let nav = tail_core::domain::NavigationPath::new();
-                            let result: Result<Vec<AppUsage>, String> = stats_use_case.get_stats(&nav).await
-                                .map(|view| stats_view_to_app_usage(view))
-                                .map_err(|e: AppError| e.to_string());
+                        GuiCommand::RefreshStats { start, end } => {
+                            // 统计页面需要原始的 AppUsage 数据（包含完整的 window_events）
+                            // 以便图表能正确显示时间分布
+                            let result: Result<Vec<AppUsage>, String> = tail_core::traits::AppUsageQuery::get_app_usage(
+                                &repo.usage_service(),
+                                start,
+                                end,
+                            )
+                            .await
+                            .map_err(|e| e.to_string());
 
                             let _ = response_tx.send(GuiResponse::StatsData(result));
                         }
 
-                        GuiCommand::RefreshDetails { start: _start, end: _end } => {
-                            // 使用新的用例层获取详细统计数据
-                            let nav = tail_core::domain::NavigationPath::new();
-                            let result: Result<Vec<AppUsage>, String> = stats_use_case.get_stats(&nav).await
-                                .map(|view| stats_view_to_app_usage(view))
-                                .map_err(|e: AppError| e.to_string());
+                        GuiCommand::RefreshDetails { start, end } => {
+                            // 详细记录需要原始的 AppUsage 数据，使用旧的实现
+                            let result: Result<Vec<AppUsage>, String> = tail_core::traits::AppUsageQuery::get_app_usage(
+                                &repo.usage_service(),
+                                start,
+                                end,
+                            )
+                            .await
+                            .map_err(|e| e.to_string());
 
                             let _ = response_tx.send(GuiResponse::DetailsData(result));
                         }
@@ -207,10 +219,14 @@ impl AsyncBridge {
                                 .await
                                 .map_err(|e| e.to_string());
 
-                                // 使用新的用例层获取应用使用数据
-                                let app_usage_result: Result<Vec<AppUsage>, String> = stats_use_case.get_stats(&tail_core::domain::NavigationPath::new()).await
-                                    .map(|view| stats_view_to_app_usage(view))
-                                    .map_err(|e: AppError| e.to_string());
+                                // 使用旧的实现获取应用使用数据（保留原始窗口事件）
+                                let app_usage_result: Result<Vec<AppUsage>, String> = tail_core::traits::AppUsageQuery::get_app_usage(
+                                    &repo.usage_service(),
+                                    start,
+                                    end,
+                                )
+                                .await
+                                .map_err(|e| e.to_string());
 
                                 match (categories_result, all_apps_result, app_usage_result) {
                                     (Ok(categories), Ok(all_apps), Ok(app_usage)) => {
@@ -260,6 +276,16 @@ impl AsyncBridge {
                             .map_err(|e| e.to_string());
 
                             let _ = response_tx.send(GuiResponse::Done(result));
+                        }
+
+                        GuiCommand::GetDailyGoals => {
+                            let result = tail_core::traits::DailyGoalRepository::get_all(
+                                &repo.goal_service(),
+                            )
+                            .await
+                            .map_err(|e| e.to_string());
+
+                            let _ = response_tx.send(GuiResponse::DailyGoals(result));
                         }
 
                         GuiCommand::SetAppAlias { app_name, alias } => {
